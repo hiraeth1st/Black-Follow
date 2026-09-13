@@ -1,0 +1,60 @@
+name: Build Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Test
+        run: |
+          curl --retry 3 -fsSL https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o "$RUNNER_TEMP/black-follow-json.jar"
+          echo "3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed  $RUNNER_TEMP/black-follow-json.jar" | sha256sum --check
+          BF_JSON_JAR="$RUNNER_TEMP/black-follow-json.jar" bash test.sh
+      - name: Build and verify signed APK
+        env:
+          BF_KEYSTORE_BASE64: ${{ secrets.BF_KEYSTORE_BASE64 }}
+          BF_KEY_PASSWORD: ${{ secrets.BF_KEY_PASSWORD }}
+          BF_KEY_ALIAS: blackfollow
+        run: |
+          if [ -z "$BF_KEYSTORE_BASE64" ] || [ -z "$BF_KEY_PASSWORD" ]; then
+            echo '::error::Add BF_KEYSTORE_BASE64 and BF_KEY_PASSWORD in Settings > Secrets and variables > Actions. Use the original signing key.'
+            exit 1
+          fi
+          umask 077
+          export BF_KEYSTORE="$RUNNER_TEMP/black-follow.jks"
+          trap 'rm -f "$BF_KEYSTORE"' EXIT
+          printf '%s' "$BF_KEYSTORE_BASE64" | base64 --decode > "$BF_KEYSTORE"
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          bash build-apk.sh
+          shopt -s nullglob
+          bf_apks=(out/Black-Follow-*.apk)
+          test "${#bf_apks[@]}" -eq 1
+          "$ANDROID_SDK_ROOT/build-tools/35.0.0/apksigner" verify --verbose --print-certs "${bf_apks[0]}" > "$RUNNER_TEMP/black-follow-signature.txt"
+          grep -Fx 'Signer #1 certificate SHA-256 digest: e121d877773cebfa03381f990f8218e47bc1b07b33ee5f078950d3092880d0f5' "$RUNNER_TEMP/black-follow-signature.txt"
+          (cd out && sha256sum Black-Follow-*.apk > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Black-Follow-APK-${{ github.run_number }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            out/Black-Follow-*.apk
+            out/SHA256SUMS.txt
