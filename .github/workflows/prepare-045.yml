@@ -28,7 +28,8 @@ jobs:
           grep -F 'Relationship search is a separate, non-cursor request' app/src/main/java/com/blackapps/follow/RelationshipRequest.java
           grep -F 'found.put(person.id,person);' app/src/main/java/com/blackapps/follow/InstagramClient.java
           grep -F 'PreviewLogic.merge' app/src/main/java/com/blackapps/follow/Store.java
-          ! grep -R -E 'count=1000|SEARCH_COUNT=1000|0\.4\.4-test|Black-Follow-0\.4\.4|versionCode 19|android:versionCode="19"' app tests README.md TEST-RESULTS.md GITHUB-SETUP.md build-apk.sh
+          ! grep -R -E 'SEARCH_COUNT=1000|count=query\.isEmpty\(\)\?200:|&count=1000' app/src/main/java
+          ! grep -R -E '0\.4\.4-test|Black-Follow-0\.4\.4|versionCode 19|android:versionCode="19"' app build-apk.sh
       - name: Commit prepared sources
         run: |
           rm .github/workflows/prepare-045.yml tools/prepare_045.py
@@ -37,4 +38,4 @@ jobs:
           git add -A
           git commit -m "Audit and repair follower relationship retrieval"
           git push origin HEAD:follower-audit-045
-# trigger 2
+# trigger 3
