@@ -1,4 +1,15 @@
-# Black Follow 0.3.0 doğrulaması
+# Black Follow 0.3.1 doğrulaması
+
+- 279 otomatik kontrol: önceki 263 kontrole ek olarak 6 sayfalama bütünlüğü ve 10 gerçek HTTP istemcisi/snapshot regresyon kontrolü.
+- Üretim InstagramClient sınıfı sentetik HTTPS yanıtlarıyla 200 takipçi ve 794 takip edilen kişiyi sayfalar arası ve sayfa içi tekrarlarla birleştirir. Son kişi, dönen imlecin sonraki isteğe aktarılması, tek final profil kontrolü ve benzersiz ilerleme sayıları kontrol edilir.
+- Tekrar eden satırlar eksik 2/3 listeyi tamamlamaz; sonraki listeye veya son sayım isteğine geçilmez. Null pk + geçerli id kabul edilir; ikisi de yoksa BF_LIST_ID oluşur. Sayfalama ortasında HTTP 429 gelirse işlem durur.
+- Üç ara sayfa boyunca benzersiz kişi sayısı artmazsa, imleç değişse bile durur. İmleç döngüsü, geçersiz kimlik, boş ara sayfa, fazla/eksik toplam ve bitmiş listeye yeni sayfa ekleme kontrolleri korunur.
+- Android kaynak, Java ve D8 derlemesi yerelde başarılı. CI aynı testleri ve önceki imza sertifikasını doğrular.
+- Kullanıcının ekran görüntüsündeki ortak hata mesajı tekrar/bozuk kimlik nedenlerini ayırmıyordu. Canlı sayfa yanıtları bu ortamda alınmadı; hatanın yalnızca tekrarlardan kaynaklandığı iddia edilmez. Yeni mesajlar bu iki durumu ayırır. Android cihazı veya canlı kullanıcı hesabında uçtan uca doğrulama yapılmadı.
+- Şema 3 ve mevcut geçmiş korunur. İki kişi listesi bütünüyle doğrulanmadan yeni takip/çıkış olayları kaydedilmez veya bildirilmez.
+
+## Önceki 0.3.0 doğrulaması
+
 
 - 263 otomatik kontrol: önceki 243 kontrole ek olarak 8 bildirim içerik/başlangıç/sınır kontrolü ve 12 gerçek SQLite sorgusuyla kendi hesap kimliği/çıkış filtresi/bildirim izolasyonu kontrolü.
 - Aynı kullanıcının sabit kimlikle bulunan eski kaydı; ad değişikliği; başka oturumun aynı hesabı izlemesi; takipçi çıkışlarının takip edilen çıkışlarından ayrılması; eşit toplam sayıda bir geliş ve bir çıkış; eski çıkışların tekrar bildirilmemesi denetlendi.

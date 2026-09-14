@@ -19,18 +19,25 @@ public final class RelationLogic {
     public static final class Pages {
         private final int expected;
         private final Set<String> ids=new HashSet<>(), cursors=new HashSet<>();
-        private boolean finished;
+        private boolean finished;private int stagnantPages;
+        public int count(){return ids.size();}
         public Pages(int expected) {
             if(expected<0 || expected>10000) throw new IllegalArgumentException("Bu test sürümü liste başına en fazla 10.000 kişiyi destekliyor.");
             this.expected=expected;
         }
         public void add(Collection<String> page, String next, boolean more) {
             if(finished) throw new IllegalArgumentException("Biten listeye yeni sayfa geldi.");
-            for(String id:page) if(!id.matches("[0-9]+") || !ids.add(id))
-                throw new IllegalArgumentException("Liste tekrar eden veya geçersiz kayıt içeriyor; geçmiş korunuyor.");
+            int before=ids.size();
+            for(String id:page) {
+                if(id==null || !id.matches("[0-9]+"))throw new IllegalArgumentException("Liste geçersiz kişi kimliği içeriyor; geçmiş korunuyor. [BF_LIST_ID]");
+                // Page boundaries can overlap. Compare unique identities, not raw row count.
+                ids.add(id);
+            }
+            stagnantPages=ids.size()==before?stagnantPages+1:0;
             if(ids.size()>expected) throw new IllegalArgumentException("Liste kontrol sırasında değişti; geçmiş korunuyor.");
             if(more && (page.isEmpty() || next.isEmpty() || !cursors.add(next)))
                 throw new IllegalArgumentException("Liste tamamlanamadı; geçmiş korunuyor.");
+            if(more && stagnantPages>=3)throw new IllegalArgumentException("Liste üç sayfadır ilerlemiyor ("+ids.size()+"/"+expected+"); geçmiş korunuyor. [BF_LIST_STALLED]");
             finished=!more;
         }
         public void finish() {

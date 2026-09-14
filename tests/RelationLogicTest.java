@@ -17,7 +17,7 @@ public class RelationLogicTest {
         RelationLogic.Pages empty=new RelationLogic.Pages(0);empty.add(set(),"",false);empty.finish();check(true,"complete empty list");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"",false);p.finish();},"partial result cannot erase history");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(2);p.add(set("1"),"x",true);p.finish();},"unfinished pages cannot commit");
-        fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(2);p.add(set("1"),"x",true);p.add(set("1"),"",false);},"duplicate identity");
+        fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(2);p.add(set("1"),"x",true);p.add(set("1"),"",false);p.finish();},"duplicates cannot hide a missing unique identity");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"x",true);p.add(set("2"),"x",true);},"cursor loop");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set(),"x",true);},"empty intermediate page");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("1","2"),"",false);},"count changed during scan");
@@ -25,6 +25,12 @@ public class RelationLogicTest {
         fails(()->new RelationLogic.Pages(10001),"explicit size cap");
         fails(()->new RelationLogic.Pages(-1),"missing count not interpreted as zero");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(0);p.add(set(),"",false);p.add(set(),"",false);},"no data accepted after final page");
+        RelationLogic.Pages overlap=new RelationLogic.Pages(3);overlap.add(Arrays.asList("1","1","2"),"next",true);overlap.add(Arrays.asList("2","3"),"",false);overlap.finish();check(overlap.count()==3,"same-page and cross-page duplicates merge by identity");
+        RelationLogic.Pages duplicateOnly=new RelationLogic.Pages(2);duplicateOnly.add(set("1","2"),"next",true);duplicateOnly.add(set("2"),"",false);duplicateOnly.finish();check(duplicateOnly.count()==2,"terminal repeated boundary can complete exact unique count");
+        RelationLogic.Pages delayed=new RelationLogic.Pages(3);delayed.add(set("1","2"),"p2",true);delayed.add(set("2"),"p3",true);delayed.add(set("3"),"",false);delayed.finish();check(delayed.count()==3,"one duplicate-only intermediate page can advance to new data");
+        fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"p2",true);p.add(set("1"),"p3",true);p.add(set("1"),"p4",true);p.add(set("1"),"p5",true);},"repeated non-progress stops even with changing cursors");
+        fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(Arrays.asList((String)null),"",false);},"null identity is rejected cleanly");
+        fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"p2",true);p.add(set("1"),"p2",true);},"duplicate-only cursor loop still rejected");
         System.out.println("PASS: "+checks+" data-integrity checks");
     }
 }

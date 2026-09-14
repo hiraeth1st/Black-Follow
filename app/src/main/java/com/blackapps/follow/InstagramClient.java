@@ -22,8 +22,11 @@ public final class InstagramClient {
         public Profile profile; public long start,end;
         public LinkedHashMap<String,Store.Edge> followers,following;
     }
+    public interface Progress {void page(String kind,int page,int received,int expected);}
+    private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private long lastRequest=0;
-    public InstagramClient(Context c,String owner,long deadline) { context=c.getApplicationContext();this.owner=owner;this.deadline=deadline; }
+    public InstagramClient(Context c,String owner,long deadline) {this(c,owner,deadline,(kind,page,received,expected)->{});}
+    public InstagramClient(Context c,String owner,long deadline,Progress progress) { context=c.getApplicationContext();this.owner=owner;this.deadline=deadline;this.progress=progress; }
     private void guard() throws IOException {
         if(Thread.currentThread().isInterrupted() || System.currentTimeMillis()>deadline) throw new IOException("Kontrol tamamlanmadan durdu; geçmiş korunuyor.");
         if(!Session.matches(owner)) throw new AccessError("Instagram oturumu değişti veya sona erdi. Yeniden giriş yap.",true,false);
@@ -130,7 +133,7 @@ public final class InstagramClient {
             JSONObject j=get("/api/v1/friendships/"+id+"/"+kind+"/?count=100"+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8")));
             JSONArray users=j.getJSONArray("users");ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {
-                JSONObject u=users.getJSONObject(i);String pk=u.optString("pk",u.optString("id",""));String username=u.getString("username");
+                JSONObject u=users.getJSONObject(i);String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.getString("username");
                 if(username.isEmpty()) throw new IOException("Eksik kullanıcı bilgisi; geçmiş korunuyor.");
                 Store.Edge edge=new Store.Edge(pk,username,u.optString("full_name",""));
                 String photo=u.optString("profile_pic_url","");if(ProfileLinks.avatar(photo))edge.avatar=photo;
@@ -139,8 +142,13 @@ public final class InstagramClient {
             cursor=j.isNull("next_max_id")?"":j.optString("next_max_id","");
             // big_list describes the collection size, not reliably the existence of a next page.
             boolean more=j.optBoolean("has_more",false) || !cursor.isEmpty();
-            validation.add(ids,cursor,more);
-            if(!more) {validation.finish();return found;}
+            try {
+                validation.add(ids,cursor,more);
+                progress.page(kind,page+1,validation.count(),expected);
+                if(!more) {validation.finish();return found;}
+            } catch(IllegalArgumentException e) {
+                throw new IOException(("followers".equals(kind)?"Takipçi listesi":"Takip edilenler listesi")+" • sayfa "+(page+1)+" • "+validation.count()+"/"+expected+" benzersiz kişi\n"+e.getMessage(),e);
+            }
         }
         throw new IOException("Sayfa sınırına ulaşıldı; eksik liste kaydedilmedi.");
     }

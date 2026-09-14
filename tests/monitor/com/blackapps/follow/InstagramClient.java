@@ -9,7 +9,9 @@ public class InstagramClient {
     }
     public static class Profile {}
     public static class Snapshot {}
+    public interface Progress {void page(String kind,int page,int received,int expected);}
     public InstagramClient(Context c,String owner,long deadline) {}
+    public InstagramClient(Context c,String owner,long deadline,Progress progress) {}
     public Profile readProfile(Store.Account a)throws AccessError {requests++;if(profileFailure!=null)throw profileFailure;return new Profile();}
     public Snapshot snapshot(Store.Account a,Profile p,long start)throws AccessError {requests++;if(snapshotFailure!=null)throw snapshotFailure;return new Snapshot();}
 }

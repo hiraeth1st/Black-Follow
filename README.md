@@ -1,6 +1,18 @@
-# Black Follow — Android 0.3.0
+# Black Follow — Android 0.3.1
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+
+## 0.3.1: çok sayfalı liste düzeltmesi
+
+Kullanıcının 200 takipçi / 794 takip bulunan hesapta paylaştığı hata, eski doğrulayıcıdaki “tekrar eden veya geçersiz kayıt” kontrolünden geliyordu. Aynı kişi bir sayfada veya iki farklı sayfada tekrar görünürse eski kod bütün taramayı durduruyordu.
+
+- Tekrarlanan satırlar sabit kişi kimliğiyle birleştirilir. Listenin tamamlanması için **benzersiz** kişi sayısı profil toplamıyla eşleşmelidir; tekrarlar eksik kişileri tamamlanmış gibi göstermez.
+- Geçersiz/eksik kişi kimliği ayrı `BF_LIST_ID` hatasıyla bildirilir. `pk` alanı null olduğunda mevcut geçerli `id` alanı kullanılabilir. Kişi kimliği üretilmez veya tahmin edilmez.
+- Döngü yapan imleç, boş ara sayfa, eksik toplam ve son profil sayımı denetimleri korunur. Değişen imleçlerle üç ara sayfa boyunca yeni kişi gelmezse işlem `BF_LIST_STALLED` ile durur.
+- Tarama sırasında hangi listenin kaç benzersiz kişisinin alındığı ve sayfa numarası görünür. Doğrulama hataları liste türünü ve sayfa numarasını içerir.
+- Erişim kısıtlaması sonrasında ek istek/retry yapılmaz. Liste başına 10.000 kişi, 200 sayfa ve çalışma başına süre sınırları devam eder; bu sürüm sınırsız liste erişimi sağlamaz.
+
+Sürüm **0.3.1-test**, `versionCode=10`, veritabanı şeması 3. 279 otomatik kontrol kapsamında gerçek Java HTTP istemcisi sentetik, çakışan sayfalarla 200/794 kişilik tam tarama gerçekleştirdi. Bu, kullanıcının canlı Instagram hesabında veya Android cihazında yapılmış bir test değildir. Yerel Android derlemesi başarılıdır.
 
 ## 0.3.0: Profilim ve takipçi çıkışları
 
@@ -50,7 +62,7 @@ Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimli�
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.3.0-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.3.1-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -98,7 +110,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.3.0-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.3.1-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 
