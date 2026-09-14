@@ -1,183 +1,99 @@
-# Black Follow — Android 0.4.0
+# Black Follow — Android 0.4.1
 
-Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip yerel geçmiş tutan bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
 
-## 0.4.0: görünür WebView ile adım adım tarama
+## 0.4.1: eksik listeleri önek aramasıyla tamamlama
 
-Hesap ekranındaki **Web üzerinden kaydırarak tara** düğmesi giriş yapılmış Instagram WebView'ini açar. Profilin takipçi bağlantısına basar, yüklenen listenin kaydırılabilir bölümünü bulur ve her seferinde görünür alanın yarısı kadar yumuşak kaydırır. Liste isteği veya yükleme göstergesi devam ederken ilerlemez; veri ve kaydırma sonrasında en az 1,5 saniye bekler. Sonra takip edilenler için aynı işlemi yapar.
+Bu sürümde eski GraphQL “ikinci yöntem” ve görünür WebView kaydırma ekranı kaldırıldı. Liste yenileme artık tek bir doğrulanabilir akış kullanır:
 
-- Görünür ekran açık tutulmalıdır. Duraklat / Devam et ve İptal düğmeleri vardır. Uygulama arka plana alınırsa kaydırma duraklar; bu yöntem arka planda otomatik çalışmaz. Mevcut zamanlanmış yöntem değişmedi.
-- Sayfanın kendi yaptığı hedef hesabın `followers` / `following` REST istekleri fetch/XHR gözlemcisiyle okunur. Gözlemci kendi API isteğini göndermez, cookie dışarı aktarmaz veya JavaScript-native arayüzü açmaz. Arama sorguları ve başka hesap/tür yanıtları tam listeye karıştırılmaz.
-- Kayıtlar sayısal hesap kimliğiyle tekilleştirilir; ilk sayfanın yakalanmış olması ve imleç zincirinin doğru sırada ilerlemesi gerekir. Tam sayfa yenileme, kaybolan gözlemci, geçersiz kimlik veya oturum değişiminde işlem durur.
-- Yalnızca sayfa sonuna gelmek tamamlanma sayılmaz. Terminal yanıt, iki türde doğru benzersiz toplam ve son profil kontrolü gerekir. Bunlar geçmeden takip/çıkış olayı ve bildirim üretilmez. Alınan geçerli kayıtlar ayrı önizleme olarak saklanabilir.
-- 30 saniye ilerlememe ve tür başına 20 dakika sınırı vardır. Duraklatma/Devam et hareketsizlik sayacını yeniler; toplam süre sınırı korunur. Sunucunun rate/giriş/doğrulama yanıtları taramayı durdurur.
-- Bu gözlemci bilinen REST liste biçimini destekler. Instagram farklı bir veri yolu, tam sayfa geçişi veya önceden önbelleğe alınmış ilk liste kullanırsa açık hata vererek durabilir. Canlı Instagram/Android cihazında tam liste elde edildiği henüz doğrulanmadı. Yarım ekran kaydırma sunucunun hiç döndürmediği kişileri garanti etmez.
+1. Takipçi veya takip edilenler listesi normal REST sayfalamasıyla alınır.
+2. Profildeki toplam ile benzersiz kişi sayısı eşleşmezse liste-içi arama devreye girer.
+3. Kullanıcı adları önce `a-z`, sonra `0-9`, `.` ve `_` önekleriyle aranır.
+4. Kalabalık veya yarım kalan bir önek gerektiğinde iki ve üç karakterli alt öneklere bölünür.
+5. Arama yanıtlarında yalnızca kullanıcı adı gerçekten istenen önekle başlayan kişiler kabul edilir; görünen ad eşleşmeleri listeye katılmaz.
+6. Bütün sonuçlar Instagram'ın sayısal kullanıcı kimliğiyle tekilleştirilir.
+7. İki listenin benzersiz sayıları profil toplamlarıyla tam eşleşmeden geçmiş, takipten çıkma kaydı veya bildirim güncellenmez.
+8. Tam sonuçtan sonra profil sayıları tekrar okunur; tarama sırasında değişiklik olmuşsa yeni liste reddedilir.
 
-Sürüm **0.4.0-test**, `versionCode=15`, şema **4**. Aynı imzayla silmeden güncellenir. JavaScript için Node tabanlı DOM/ağ örnekleri ve Java için gerçek sayfa doğrulayıcısı testleri eklendi. Testler canlı Instagram yanıtı kullanmaz.
+Önek araması sınırlı bir istek ve derinlik bütçesine sahiptir. Instagram tüm kişileri hiçbir yöntemde göndermiyorsa alınan bölüm yalnızca **önizleme** olarak saklanır; doğrulanmış geçmiş korunur.
 
-## 0.3.5: açık listeyi koruma ve gerçek tarama tanısı
+Sürüm: **0.4.1-test**, `versionCode=16`, veritabanı şeması **4**. Aynı imza kullanıldığında önceki sürüm silinmeden güncellenebilir.
 
-Arka plan tamamlandığında açık hesap listesi kendiliğinden yeniden çizilmez; üstteki yeni kayıt bildirimiyle kullanıcı yeniler. Elle kontrol tamamlandığında kaydırma konumu korunur. Bu değişiklik eksik sunucu kayıtlarını tamamlamaz.
+## Temel özellikler
 
-Eksik liste mesajında her yöntemin sayfa, toplam dönen satır, tekrar, benzersiz kişi, devam bayrağı ve imleç varlığı gösterilir. Gerçek imleç, kişi kimliği, kullanıcı adı, cookie ve yanıt gövdesi tanıya yazılmaz. Bilgiyi kopyala veya menüdeki son hata kopyalama düğmesiyle alınabilir. Her hesap taramasında tanı sıfırlanır. Böylece tekrarların mı yoksa eksik terminal yanıtın mı etkili olduğu cihazdan görülebilir. 321 otomatik kontrol CI kapısıdır. Sürüm 0.3.5-test, versionCode 14; şema değişmedi. Canlı tam liste sorunu henüz çözülmüş değildir.
+- Birden fazla hesabın takipçi ve takip edilen listelerini yerelde saklama
+- Yeni gelenleri ve listeden çıkanları sayısal kullanıcı kimliğiyle karşılaştırma
+- Kendi profilinde “Beni takipten çıkanlar” görünümü
+- Eksik taramaları doğrulanmış geçmişten ayrı önizleme olarak gösterme
+- Yerel TXT dışa aktarma
+- Android bildirimleri ve 6/12/24 saatlik arka plan kontrol seçenekleri
+- Oturum, rate-limit, challenge ve kimlik değişimi durumlarında güvenli durdurma
 
-## 0.3.4: REST liste isteği bağlamı
+## Güvenlik ve veri sınırları
 
-REST takipçi/takip edilen sayfalarına aynı tarama boyunca sabit `rank_token`, `search_surface=follow_list_page`, boş `query` ve `enable_groups=true` eklendi. Önceden yalnızca count/max_id gönderiliyordu. Her liste taramasının belirteci ayrıdır; tekrar eden kişiler yine sayısal hesap kimliğiyle tekilleştirilir. GraphQL alternatifi, tamlık kontrolleri, sunucu kısıtlamaları ve geçmiş koruması değişmedi.
+- Parola uygulamaya verilmez; giriş Instagram'ın HTTPS WebView sayfasında yapılır.
+- Cookie, parola, kullanıcı listesi veya profil kimlikleri harici bir sunucuya gönderilmez.
+- Uygulama challenge atlatma, proxy döndürme veya erişim kısıtını aşma denemesi yapmaz.
+- Instagram bir listeyi eksik döndürürse eksik kişiler “takipten çıktı” kabul edilmez.
+- Arama tamamlama yalnızca hedef hesabın takipçi/takip edilenler liste yolunu kullanır.
+- Kayıtlar uygulamanın yerel SQLite veritabanında tutulur.
 
-Parametreler [instagrapi kaynak kodundaki](https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/user.py) friendship liste istemcisinden referans alınmıştır. Bu kaynak mobil API kullanır; web sunucusunun aynı parametreleri uyguladığı henüz canlı olarak doğrulanmadı. Kullanıcının ekran görüntüsü eksik kişinin aynı WebView oturumunda aramayla görülebildiğini doğrular; genel liste sayfalamasının neden eksik kaldığını tek başına kanıtlamaz. Bu sürüm isteğin bağlamını tamamlar; tüm eksiklerin giderildiği iddia edilmez.
+## Telefonda kullanım
 
-Sürüm **0.3.4-test**, `versionCode=13`, şema **4**. Aynı imzayla silmeden güncelleme. Üç ek taşıma testi, tüm sayfalarda bağlamı ve tarama boyunca sabit kalan bağımsız belirteçleri kontrol eder.
+1. GitHub Actions çıktısından `Black-Follow-0.4.1-test.apk` dosyasını indirip Android 8.0 veya üzeri cihaza kur.
+2. **Instagram'a giriş yap** ekranında Instagram hesabınla giriş yap ve gerekiyorsa doğrulamayı tamamla.
+3. **Giriş yaptım • oturumu doğrula** düğmesine bas.
+4. Bir kullanıcı adı ekle veya **Profilim** sekmesini aç.
+5. **Listeyi şimdi yenile** düğmesine bas. Normal sayfalama eksik kalırsa önek araması aynı işlem içinde otomatik başlar.
+6. Sonuç tam değilse kişiler önizleme olarak görünür; geçmiş değişmez.
 
-## 0.3.3: eksik listede ikinci sayfalama yöntemi
+Kalabalık listelerde önek tamamlama normal taramadan daha uzun sürebilir. Uygulamayı zorla kapatmak veya oturumu değiştirmek işlemi güvenli biçimde durdurur.
 
-İlk liste yöntemi 178/200 takipçi veya 787/794 takip gibi eksik sonuç verdiğinde yalnızca eksik kalan tür için bağımsız GraphQL sayfalaması başlar. Önce iki ilk liste okunur; sonra gerekirse takipçi ve takip edilenler ayrı ayrı yeniden alınır. Her yöntem kendi imlecini kullanır. İki eksik tarama birleştirilmez; bir taramanın benzersiz kimlik sayısı profil toplamına ulaşmalıdır. Sonunda profil toplamları tekrar kontrol edilir.
+## Yerel test
 
-- Normal yöntem tam sonuç döndürürse ek istek yapılmaz. İkinci yöntemde ilerleme ayrı etiketlenir.
-- `has_next_page` ve `end_cursor` birlikte değerlendirilir; son sayfada imleç bulunması tek başına yeni istek başlatmaz. Sayfa tekrarları kimlikle ayıklanır; imleç döngüsü veya değişen toplam taramayı durdurur.
-- HTTP 429, gerçek Retry-After, oturum veya güvenlik doğrulaması yanıtlarında işlem durur. Erişim reddini aşmak için başka yöntem denenmez.
-- İki yöntem de eksik kalırsa en geniş tek tarama önizlemesi saklanır. Eksik kişiler takipten çıkmış kabul edilmez. Önceki tam listeler ve olaylar korunur.
-
-İkinci yöntem tanımları [Instaloader kaynak kodu](https://github.com/instaloader/instaloader/blob/master/instaloader/structures.py) ve [instagrapi kaynak kodundaki](https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/user.py) GraphQL bağlantı sayfalamasına dayanır. Bu kaynaklar Instagram'ın resmi API garantisi değildir; sorguların her hesapta çalışacağı veya tüm kişilerin döneceği garanti edilmez. Mobil API parametreleri tahminen web isteğine eklenmedi.
-
-Sürüm **0.3.3-test**, `versionCode=12`, veritabanı şeması **4**. Giriş ve kayıt biçimi değişmedi. Sentetik HTTPS yanıtlarıyla 178/200 ve 787/794 ilk sonuçlarından sonra bağımsız 200/200 ve 794/794 sonuçlarının doğrulanması test edilir. Kullanıcının canlı hesabında veya Android cihazında bu sonuç henüz doğrulanmadı; eksik kişilerin asıl nedeni belirlenmiş değildir. Test ayrıntıları `TEST-RESULTS.md` dosyasında.
-
-## 0.3.2: eksik liste önizlemesi
-
-Cihaz görüntüsünde 200 toplam takipçiye karşılık 9 sayfada 182 benzersiz kişi alındı ve sayfalama sona erdi. Önceki sürüm, toplam eşleşmediğinden alınan kişileri göstermiyor ve takip edilenler listesine geçmiyordu. Eksik 18 kişinin nedeni veya kimliği bu veriden belirlenemez.
-
-- Sunucunun devam sayfası vermediği bir listede alınan geçerli kişiler ayrı bir **tarama önizlemesine** kaydedilir. Örneğin 182/200 takipçi, açıkça “Eksik liste” olarak görünür. Profil toplamı 182'ye indirilmez.
-- Takipçi sayısı eksik kalsa da takip edilenler listesi normal akışta taranır. Her liste ayrı sayı ve alınma zamanı gösterir. HTTP 429, giriş engeli, bozuk kişi kimliği veya imleç döngüsü alınırsa işlem durur; başka yoldan erişim denenmez.
-- Önizlemelerde isim arama, profil fotoğrafı ve profile dokunarak gitme kullanılabilir. Eski tam liste varsa “Son doğrulanmış listeyi göster” ile görüntülenir. Liste önizlemesi ve doğrulanmış geçmiş birleştirilmez.
-- TXT raporu önizlemeleri ayrı başlık altında, eksik/toplam sayısı ve alınma zamanı ile içerir. Önizlemedeki kişi için takip zamanı bilinmiyor denir; yeni takip olayı üretilmez.
-- Her iki liste ve son profil sayımı doğrulanmadan geçmişe takip/çıkış kaydı veya bildirim yazılmaz. Böylece eksik 18 kişi yanlışlıkla takipten çıktı sayılmaz. Başarılı tam kayıt önizlemeleri aynı veritabanı işlemi içinde temizler.
-
-Sürüm **0.3.2-test**, `versionCode=11`, veritabanı şeması **4**. Geçiş yalnızca ayrı önizleme tablolarını ekler; önceki hesaplar, tam listeler ve olaylar korunur. 302 otomatik kontrol başarılı; 9 sayfada 182/200 takipçi ve ardından 794/794 takip edilen kişi sentetik HTTPS yanıtlarıyla test edildi. Bu sürüm eksik kişilerin elde edildiği anlamına gelmez. Canlı hesap ve Android cihaz testi burada yapılmadı.
-
-## 0.3.1: çok sayfalı liste düzeltmesi
-
-Kullanıcının 200 takipçi / 794 takip bulunan hesapta paylaştığı hata, eski doğrulayıcıdaki “tekrar eden veya geçersiz kayıt” kontrolünden geliyordu. Aynı kişi bir sayfada veya iki farklı sayfada tekrar görünürse eski kod bütün taramayı durduruyordu.
-
-- Tekrarlanan satırlar sabit kişi kimliğiyle birleştirilir. Listenin tamamlanması için **benzersiz** kişi sayısı profil toplamıyla eşleşmelidir; tekrarlar eksik kişileri tamamlanmış gibi göstermez.
-- Geçersiz/eksik kişi kimliği ayrı `BF_LIST_ID` hatasıyla bildirilir. `pk` alanı null olduğunda mevcut geçerli `id` alanı kullanılabilir. Kişi kimliği üretilmez veya tahmin edilmez.
-- Döngü yapan imleç, boş ara sayfa, eksik toplam ve son profil sayımı denetimleri korunur. Değişen imleçlerle üç ara sayfa boyunca yeni kişi gelmezse işlem `BF_LIST_STALLED` ile durur.
-- Tarama sırasında hangi listenin kaç benzersiz kişisinin alındığı ve sayfa numarası görünür. Doğrulama hataları liste türünü ve sayfa numarasını içerir.
-- Erişim kısıtlaması sonrasında ek istek/retry yapılmaz. Liste başına 10.000 kişi, 200 sayfa ve çalışma başına süre sınırları devam eder; bu sürüm sınırsız liste erişimi sağlamaz.
-
-Sürüm **0.3.1-test**, `versionCode=10`, veritabanı şeması 3. 279 otomatik kontrol kapsamında gerçek Java HTTP istemcisi sentetik, çakışan sayfalarla 200/794 kişilik tam tarama gerçekleştirdi. Bu, kullanıcının canlı Instagram hesabında veya Android cihazında yapılmış bir test değildir. Yerel Android derlemesi başarılıdır.
-
-## 0.3.0: Profilim ve takipçi çıkışları
-
-Alt gezinme çubuğunda solda büyüteç simgeli **Ara**, sağda boş profil simgeli **Profilim** bulunur. Ara sekmesi mevcut hesap arama/geçmiş ekranını açar. Profilim sekmesi giriş yapılan Instagram hesabını gösterir; kullanıcı adı elle yazılmaz.
-
-- Profilim ilk açıldığında hesap sabit oturum kimliğiyle kaydedilir ve henüz hiç denenmemişse tam liste kontrolü başlar. Önceden takip edilen aynı hesap varsa o kayıt ve geçmiş kullanılır; kullanıcı adı değişmesi ikinci kayıt oluşturmaz. İlk girişte veya kontrol sürerken gerekirse “Profilimi aç” düğmesi görünür.
-- Takipçi/takip sayıları, kişi listeleri, hareketler, elle yenileme ve TXT dışa aktarma kendi hesabında da çalışır. Yeni kayıt otomatik izlemeye açıktır; daha önce durdurulmuş bir kaydın tercihi korunur.
-- **Beni takipten çıkanlar** yalnızca kendi hesabının takipçi listesindeki çıkış olaylarını gösterir. Senin takip etmeyi bıraktığın kişiler bu filtreye karışmaz. İlk tam tarama başlangıçtır; daha önce kimlerin çıktığı geriye dönük çıkarılamaz.
-- Başarılı tam taramada kendi takipçi listenden çıkan kişiler isimleriyle bildirilir. Bildirime dokunmak Profilim içindeki çıkış filtresini açar. İlk tarama, eksik tarama ve sadece sayı değişikliği çıkış bildirimi üretmez. Başka hesaplar için önceki yeni kişi bildirimleri devam eder.
-- Çıkış; takipten çıkma, engelleme, hesap kapanması veya görünürlük değişikliği gibi nedenlerle olabilir. Tespit saati kesin olay saati değildir. Bildirimler tarama sonucuna bağlıdır: varsayılan otomatik kontrol 6 saattir, Android bildirim izni gerekir. Instagram'dan anlık bildirim bağlantısı yoktur.
-- Ara ekranındaki hesap, liste sayfası ve arama filtresi Profilim'e gidip dönünce geri yüklenir. Oturum değişince görünüm sıfırlanır; kullanıcı kayıtları birbirine aktarılmaz.
-
-Sürüm **0.3.0-test**, `versionCode=9`, veritabanı şeması 3. 263 otomatik kontrol ve yerel Android derlemesi başarılı. Giriş doğrulaması ve HTTP istek protokolü korunur. Yeni Android arayüzü ve bildirim teslimi burada cihazda çalıştırılmadı.
-
-## 0.2.4: günlük kullanım ve rapor iyileştirmeleri
-
-Kullanıcı 0.2.3 sürümünde girişin ve veri çekiminin sorunsuz çalıştığını bildirdi. Bu incelemede giriş ve Instagram istek protokolü değiştirilmedi.
-
-- **TXT dışa aktarma:** Günlük sayımlar ve tüm hareketlere ek olarak son tam taramadaki takipçi ve takip edilen listeleri de yazılır. Her kişide kullanıcı adı, varsa ad, profil bağlantısı, biliniyorsa tespit aralığı bulunur. İlk kayıttaki kişiler “Zaman bilinmiyor” olarak kalır. Liste zamanı profil sayımından ayrı gösterilir. Rapor ekran filtresinden bağımsızdır ve 100 kişi sınırı yoktur.
-- **Hareketlerde arama:** Kullanıcı adı veya isimle geçmiş aranabilir. Tüm hareketler, yeni takipçiler, yeni takipler ve listeden çıkanlar filtreleri eklenmiştir. Tekrar takip sayıları filtrelenmiş satır sayısına göre değil, kişinin tüm kayıtlı geçmişine göre hesaplanır.
-- **Ekran güncelliği:** Arka plan kontrolü bitince açık ekran kayıtları yeniler ve kaydırma konumunu korur. Yazı alanında çalışırken ekran yeniden kurulmaz; yeni kayıt bildirimi üstte görünür ve dokunarak açılabilir. Bu yalnızca yerel ekran yenilemesidir, Instagram'a yeni istek göndermez.
-- **Sayfalama:** Tam 100 kayıtta fazladan boş sayfa açılması düzeltildi; sonraki sayfa düğmesi yalnızca devam eden kayıt varsa görünür.
-- **Menü:** Küçük ekranlarda veya büyük yazı ayarında tüm seçeneklere kaydırarak erişilebilir.
-
-Sürüm **0.2.4-test**, `versionCode=8`, veritabanı şeması 3. 243 otomatik kontrol başarılı. Önceki sürümle aynı imzayı kullanır; uygulamayı silmeden güncellenir. Yeni sürümün Android cihazında görsel testi ve canlı liste testi bu ortamda yapılmadı. Aşağıdaki 0.2.3 notları önceki değişiklikleri açıklar.
-
-## 0.2.3: giriş ile veri sorgusunun ayrılması
-
-Önceki sürüm, profil sorgusundan kalan yerel HTTP 429 beklemesini giriş doğrulamasına da uyguluyordu. Instagram sayfasında giriş tamamlanmış olsa bile uygulamaya dönülemiyordu.
-
-- Uygulamanın 15 dakika ile başlayıp saatlere uzayan beklemesi ve giriş düğmesinin 30 saniyelik sınırı kaldırıldı. Güncelleme eski yerel beklemeyi otomatik temizler. Geçmiş ve hesap listeleri korunur.
-- Instagram açıkça `Retry-After` gönderirse yalnızca veri istekleri o süreye uyar. Süre göndermezse uygulama tarih uydurmaz: tek deneme hata ile biter, kullanıcı elle yenileyebilir. Arka plan istekleri başarılı bir manuel veri kontrolüne kadar durur; otomatik tekrar döngüsü oluşmaz. Arka plan hatalarının kontrol aralığı ayrıca katlanmaz.
-- Giriş düğmesi artık ek GraphQL isteği göndermez. Instagram'ın HTTPS sayfasındaki görünür gezinme alanından oturum sahibinin profil düğmesini okur ve cihazdaki oturum kimliğinin işlem sırasında değişmediğini denetler. Ziyaret edilen profil, öneriler veya takipçi penceresindeki kişiler oturum sahibi sayılmaz. Şifre alanının değeri, sayfa içi gizli veriler veya sayfa kaynak kodu okunmaz.
-- Giriş/doğrulama sayfasında, eksik oturumda, belirsiz görünümde veya sayfa/hesap değiştiğinde işlem kabul edilmez. Instagram arayüzü tanınamazsa `BF_LOGIN_PAGE` gösterilir; ana sayfa açılıp tekrar kontrol edilebilir. Bu DOM yaklaşımı Instagram'ın arayüz değişikliklerinden etkilenebilir.
-- Aynı doğrulanmış oturum için her 10 dakikada bir ek oturum isteği gönderilmez. Her veri isteğinde oturum kimliği denetlenir; Instagram yeniden giriş veya güvenlik doğrulaması istediğinde veri çekme durur. Giriş ekranı açıkken arka plan kontrolü aynı oturuma müdahale etmez.
-- Ekran görüntüsü alma, yeni kişi bildirimleri, kullanıcı adı/fotoğraf listeleri ve TXT dışa aktarma önceki sürümden devam eder. İlk tam liste başlangıç kaydıdır ve bildirim üretmez; sonraki başarılı tam listelerde tespit edilen yeni kişiler bildirilir.
-
-Sürüm **0.2.3-test**, `versionCode=7`, veritabanı şeması 3. Aynı imzayla mevcut uygulamanın üzerine kurulur; kaldırıp yüklemek gerekmez. Her kullanıcı kendi Instagram oturumunu ve telefonundaki kayıtlarını kullanır. Test hesabı veya oturum verisi APK'ya eklenmez.
-
-### Doğrulanan ve açık kalan noktalar
-
-221 otomatik kontrol ve Android kaynak/Java/D8 derlemesi çalıştırılır. Yeni giriş kontrolünde APK'ya paketlenen **aynı JavaScript dosyası**, izin verilen canlı test hesabının açık Instagram sayfasında çalıştırıldı ve oturum sahibini doğru buldu. Tarayıcıda izin verilen hedefin 26 takipçisi ve 27 takip edilen hesabı önceki canlı kontrolde tamamen görüntülenmişti.
-
-**Bu sonuç, Android APK'nın takipçi API'siyle canlı liste çektiğinin doğrulaması değildir.** Bu ortamda Android cihazı/emülatörü bulunmadığı için native WebView ile uçtan uca giriş, canlı liste çekimi, bildirim teslimi ve uzun süreli arka plan çalışması denenemedi. Tarayıcıdaki doğrudan API denemesi ortamın `ERR_BLOCKED_BY_CLIENT` hatasıyla engellendi; bu Instagram'ın HTTP 429 yanıtı değildir. Tarayıcı oturumu dışarı aktarılmadı. Ayrıntılar `TEST-RESULTS.md` dosyasında.
-
-Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimliği çözümleme ve kimlikle profil GraphQL isteği kullanır. Kayıtlı kimlik için tekrar arama yapılmaz. Takipçi/takip edilen listeleri Instagram'ın erişimine bağlıdır; giriş doğrulamasının başarılı olması veri erişimini garanti etmez. Eksik liste geçmişe kaydedilmez. Her ret sonrası işlem durur, alternatif uç nokta zinciri denenmez.
-
-## Telefonda ilk kullanım
-
-1. `Black-Follow-0.4.0-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
-2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
-3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
-4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
-5. Profil erişimi başarılıysa sayılar ve alınma zamanı görünür. **Listeyi şimdi yenile** ile iki liste de tamamen alınırsa kişiler kaydedilir. İlk kayıt kişileri **Zaman bilinmiyor** olarak işaretlenir.
-6. Sonraki başarılı taramalar eklenen ve listeden çıkan kişileri **Hareketler** sekmesine kaydeder.
-7. **☰ → Hesap geçmişi** ile kayıtlı hesaplara dön. Hesaplar otomatik izlenir. Hesap ekranında izlemeyi durdurabilir veya menüden o hesabın tüm verilerini silebilirsin.
-
-Gizli hesapta giriş yaptığın hesabın gerekli erişimi bulunmalıdır. Uygulama takip isteği göndermez, gizliliği aşmaz, güvenlik doğrulamasını otomatik çözmez. Instagram oturumu veya liste testi başarısız olursa hata metnini paylaş; parola, oturum çerezi veya doğrulama kodu paylaşma.
-
-## Otomatik kontroller ve zaman
-
-- Varsayılan aralık **6 saat**; menüde **12 / 24 saat** veya kapalı seçilebilir.
-- Android JobScheduler kullanılır; internet gerekir. Uygulamanın ekranda açık olması gerekmez, ancak Android pil kısıtları ve üreticinin güç yönetimi kontrolleri geciktirebilir. Zorla durdurulan uygulama yeniden açılana kadar çalışmaz. Telefon kapalıyken kontrol yapılmaz. Ayrı bir sunucu yoktur.
-- Her kayıtlı, izlemeye açık hesap sırayla değerlendirilir. Bir çalışma en fazla yaklaşık 7 dakika sürer. Sığmayan hesaplar sonraki çalışmada öncelik alır.
-- Manuel kontrolde uygulamanın 5 dakika bekleme şartı yoktur; aynı anda tek kontrol yapılabilir. Arka plan hatalarında seçili kontrol aralığı kullanılır. HTTP 429 yanıtında yalnızca sunucunun `Retry-After` süresi uygulanır; süre yoksa yerel sayaç eklenmez. 429 sonrasında otomatik veri istekleri başarılı bir manuel yenilemeye kadar durur. Giriş/izin doğrulaması istenirse kullanıcı yeniden doğrulayana kadar durur.
-- İlk kayıtta geçmiş takip saati üretilmez. Sonraki kayıtlarda **tespit zamanı** ve önceki tarama başlangıcı–yeni tarama bitişi aralığı gösterilir. Saat dilimi cihazın saat dilimidir.
-- Saatler gerçek takip olayının kesin saati değildir. İki tarama arasındaki takip-et/çıkar hareketleri kaçırılabilir. Cihaz saatinin doğru olması gerekir.
-- Listeden çıkma; takipten çıkma, engelleme, hesabın kapanması veya platform görünürlüğü gibi farklı nedenlere bağlı olabilir.
-
-## Veri bütünlüğü
-
-- Kişiler sabit Instagram kimliğiyle karşılaştırılır; kullanıcı adı değişikliği yeni takip sayılmaz.
-- Takipçi ve takip edilen kişi listeleri **tek SQLite işlemi** ile kaydedilir. İki listeden biri başarısızsa ikisi için de önceki geçmiş korunur. Profil toplamları bu işlemden ayrı kaydedilir; liste hatası bu toplamları geri almaz.
-- Sayfalar, sayılar, tekrarlanan kimlikler ve döngü yapan sayfa imleçleri denetlenir. Profil sayıları tarama öncesi ve sonrası karşılaştırılır.
-- Bu kontroller Instagram'ın anlık/atomik bir liste garantisi verdiği anlamına gelmez. Eşzamanlı, toplam sayıyı değiştirmeyen hareketler belirsizlik yaratabilir.
-- Bu test sürümünde liste başına en fazla **10.000 kişi / 200 sayfa** işlenir. Sınır aşılırsa eksik liste kaydedilmez.
-- Kayıtlar giriş yapılan Instagram hesabının kimliğine göre ayrılır. Başka bir Instagram hesabıyla giriş yapmak önceki oturumun kayıtlarını o hesaba aktarmaz.
-
-## Yerel veriler ve oturum
-
-Uygulamanın sunucusu, analitiği veya reklam SDK'sı yoktur. Kullanıcının seçtiği hedefe TXT dışa aktarma yapılabilir. Profil fotoğrafları yalnızca HTTPS cdninstagram.com / fbcdn.net alanlarından, Instagram oturum çerezi eklenmeden alınır; fotoğraf önbelleği bellekte ve oturum sahibine göre tutulur. API istekleri sabit HTTPS Instagram adresine gider; yönlendirmeler otomatik izlenmez. Instagram web sayfası kendi gerekli kaynaklarını yükler. Parola uygulamanın ayrı formuna girilmez; uygulama kodu parola alanını okumaz. WebView oturum çerezleri yalnızca cihazdaki uygulama alanında tutulur; ağ istemcisi bunları aynı Instagram alan adına gönderir. Oturum çerezi de giriş yetkisi verdiği için hassas veridir.
-
-Geçmiş SQLite ile uygulamanın özel alanında saklanır. Uygulama düzeyinde ayrıca veritabanı şifrelemesi uygulanmamıştır; Android'in uygulama izolasyonu ve cihazın disk koruması kullanılır. Bulut yedekleme kapalıdır. Ekran görüntüsü giriş ve ana ekranda açıktır. Çıkış çerezleri temizler, geçmişi korur. Uygulamayı kaldırmak veya uygulama verilerini temizlemek geçmişi siler.
-
-## Derleme
-
-Gerekenler: JDK 17+, Android SDK platform 35, build-tools 35.0.0, `zip`. Android Studio için Gradle projesi de sağlanır. Yerel teslim derlemesi üçüncü taraf Android kütüphanesi gerektirmez:
+JDK 17 ile temel testler:
 
 ```bash
 bash test.sh
-export ANDROID_SDK_ROOT=/absolute/path/to/android-sdk
-export BF_KEYSTORE=/absolute/path/to/black-follow.jks
+```
+
+JSON bağımlılığı bulunan oturum ve profil testleri:
+
+```bash
+export BF_JSON_JAR=/path/to/json-20240303.jar
+bash test.sh
+```
+
+Beklenen test JAR SHA-256 değeri:
+
+```text
+3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed
+```
+
+## APK derleme
+
+Android SDK platform 35, build-tools 35.0.0 ve JDK 17 gerekir.
+
+```bash
+export ANDROID_SDK_ROOT=/path/to/android-sdk
+export BF_KEYSTORE=/path/to/original-signing-key.jks
 export BF_KEY_ALIAS=blackfollow
-# BF_KEY_PASSWORD değerini güvenli ortam değişkeni olarak ayarla.
+export BF_KEY_PASSWORD='...'
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.4.0-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı:
 
-Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
+```text
+out/Black-Follow-0.4.1-test.apk
+```
 
-GitHub Actions iş akışı `.github/workflows/android.yml` içindedir. İmzalı APK için repo secrets: `BF_KEYSTORE_BASE64` (JKS dosyasının base64 içeriği) ve `BF_KEY_PASSWORD`. Anahtar veya parolayı repoya commit etme. GitHub kurulumu ve mevcut bağlantının durumu için GITHUB-SETUP.md dosyasına bak. İmza secrets eksikse otomatik derleme açık hata ile durur; başarılı çıktıda yalnızca imzalı APK ve SHA-256 listesi bulunur.
+İmza değişirse Android mevcut kurulumun üzerine güncelleme yapmaz. Anahtar dosyası ve parolası repoya eklenmemelidir.
 
-## Teknik kaynaklar
+## Bilinen sınırlar
 
-- Android JobScheduler: https://developer.android.com/reference/android/app/job/JobScheduler
-- Android WebView ayarları: https://developer.android.com/reference/android/webkit/WebSettings
-- Resmî Instagram API kapsamı: https://www.postman.com/meta/instagram/collection/6yqw8pt/instagram-api
-- Instaloader bağımsız proje dokümantasyonu (oturum ve liste okuma yaklaşımı): https://instaloader.github.io/as-module.html
-- Web oturum sorgusunun birincil kod referansı (`test_login`): https://github.com/instaloader/instaloader/blob/master/instaloader/instaloadercontext.py
-
-Kaynak kod bu proje için yazılmıştır; Instaloader/instagrapi kütüphanesi veya kodu pakete dahil değildir.
-
-- Retry-After tanımı: https://www.rfc-editor.org/rfc/rfc9110.html#name-retry-after
-
-- Android bildirim izni: https://developer.android.com/develop/ui/compose/notifications/notification-permission
+- Instagram özel ve değişebilen web uçları kullandığı için erişim her hesapta garanti değildir.
+- Çok kalabalık öneklerde uygulama alt öneklere ayrılsa da Instagram arama yanıtını yine sınırlayabilir.
+- Tarama sırasında hesap toplamı değişirse sonuç bilerek kaydedilmez.
+- Arka plan kontrolü Android pil tasarrufu nedeniyle gecikebilir.
+- Oturum sahibinin erişemediği gizli hesap listeleri alınamaz.

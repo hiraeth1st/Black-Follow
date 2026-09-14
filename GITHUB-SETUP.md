@@ -1,6 +1,6 @@
 # GitHub otomatik APK derlemesi
 
-Hazırlanan kaynak sürümü: 0.3.2-test (versionCode 11).
+Hazırlanan kaynak sürümü: 0.4.1-test (versionCode 16).
 
 ## Depo
 
@@ -24,6 +24,6 @@ Kaynak depo: https://github.com/hiraeth1st/Black-Follow
 - İmza eksikse kurulamaz bir APK'yı başarılı çıktı diye sunmaz; açık hata ile durur.
 - Sertifika önceki APK'larla aynı olmalıdır; farklı anahtar kullanılırsa derleme doğrulaması durur.
 - İmza anahtarı geçici dosyası adım bitince silinir; indirilen çıktıya yalnızca APK ve SHA-256 listesi girer.
-- Mevcut secrets ile önceki 0.2.2 derlemesinde imzalı APK üretimi doğrulandı. Her yeni sürümün sonucu kendi Actions çalışmasından kontrol edilir.
+- Mevcut secrets ile imzalı APK üretimi doğrulandı. Her yeni sürümün sonucu kendi Actions çalışmasından kontrol edilir.
 
 Kaynak: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets

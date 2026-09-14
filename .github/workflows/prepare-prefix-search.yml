@@ -1,0 +1,46 @@
+name: Prepare Prefix Search Sources
+on:
+  push:
+    branches: [prefix-search-rebuild]
+permissions:
+  contents: write
+jobs:
+  prepare:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Remove Web scan entry and finish version update
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/main/java/com/blackapps/follow/MainActivity.java')
+          text = path.read_text(encoding='utf-8')
+          marker = '        action("Web üzerinden kaydırarak tara",()->{if(Monitor.BUSY.get()){toast("Mevcut kontrolün bitmesini bekle.");return;}startActivity(new Intent(this,WebScanActivity.class).putExtra("account",a.id));});\n'
+          if text.count(marker) != 1:
+              raise SystemExit('Web scan action marker was not found exactly once')
+          text = text.replace(marker, '')
+          text = text.replace('0.4.0', '0.4.1')
+          path.write_text(text, encoding='utf-8')
+
+          monitor = Path('app/src/main/java/com/blackapps/follow/Monitor.java')
+          value = monitor.read_text(encoding='utf-8')
+          value = value.replace('(kind.endsWith("_graphql")?" • ikinci yöntem":"")', '(kind.endsWith("_search")?" • önek araması":"")')
+          monitor.write_text(value, encoding='utf-8')
+          PY
+          ! grep -R "WebScanActivity\|WebScanData\|scroll_scan\|peopleGraphql\|completeList" app test.sh tests --exclude-dir=out
+          bash test.sh
+      - name: Commit prepared sources
+        run: |
+          rm .github/workflows/prepare-prefix-search.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Finalize prefix-search source cleanup"
+          git push origin HEAD:prefix-search-rebuild

@@ -1,78 +1,22 @@
-# Black Follow 0.4.0 doğrulaması
+# Black Follow 0.4.1 doğrulaması
 
-- Yeni WebView scripti için 25 örnek tabanlı kontrol: doğru hedef bağlantısını tek açma, doğrudan API isteği yapmama, ilk yanıtı bekleme, yarım ekran/smooth kaydırma, yükleme göstergesi ve devam eden fetch sırasında bekleme, duraklama, terminal yanıt sonrası görsel sona ulaşma, hedef/tür/arama ayrımı, 429 Retry-After, challenge, güvenli tamsayı kimliği, bozuk yanıt, XHR ve sınırlı kuyruk.
-- Gerçek WebScanData sınıfında 13 bütünlük kontrolü: sıra/ilk sayfa/terminal kontrolü, çakışan sayfaların ID ile tekilleştirilmesi, eksik terminal listenin tam sayılmaması, fazla/bozuk kimlik, boş liste ve devam imleci.
-- Önceki 321 kontrol de CI kapsamında çalışır; toplam hedef 359 kontrol. Android kaynak/Java/D8 derlemesi yerelde doğrulanır. CI orijinal sertifikayla imzalı APK üretir.
-- Bu ortamda Android cihaz/emülatör testi yapılmadı. DOM testleri kontrollü örnek kullanır; canlı Instagram DOM'u, isteği yakalama ve 200/794 tam sonuç henüz doğrulanmadı. Android Activity yaşam döngüsü, görünüm ve bildirim teslimi cihazda doğrulama gerektirir.
-- JavaScript köprüsü evaluateJavascript sonucu üzerinden sınırlı alanları okur; cookie, yanıt gövdesi veya gerçek imleç loglanmaz. Ek dışa açık Activity veya JavascriptInterface yoktur. İptal/oturum değişimi işlemleri denetlenir; arka plan işiyle ortak kilit çalışan iş bitmeden bırakılmaz.
+## Değişiklik kapsamı
 
-## Önceki 0.3.5 doğrulaması
+- Eski takipçi/takip GraphQL bağlantı taraması kaldırıldı.
+- `WebScanActivity`, `WebScanData`, WebView kaydırma JavaScript'i ve bunlara ait testler kaldırıldı.
+- Normal REST liste sayfası isteği `count=200` kullanacak şekilde güncellendi.
+- Eksik terminal listeler için kullanıcı adı önek araması eklendi: `a-z`, `0-9`, `.` ve `_`.
+- Arama yanıtları sayısal kullanıcı kimliğiyle tekilleştiriliyor ve kullanıcı adı önek eşleşmesiyle filtreleniyor.
+- Kalabalık/yarım önekler en fazla üç karakter derinliğine bölünüyor; liste başına istek bütçesi sınırlı.
+- Tam iki liste ve son profil sayımı doğrulanmadan geçmiş/bildirim güncellenmiyor.
 
-321 kontrol CI kapısı: önceki 319 kontrol ve iki gerçek HTTP istemcisi tanı kontrolü. REST 3 satır / 1 tekrar / 2 benzersiz kişi sonucu ile GraphQL 2 satır / 0 tekrar / 2 kişi sonucu ayrı doğrulanır. İmleç içeriği tanıya girmez; yalnızca varlığı kaydedilir. Açık listede otomatik yeniden çizim durduruldu; elle kontrol sonunda kaydırma konumu korunur. Android arayüzü cihaz üzerinde test edilmedi. Eksik canlı liste sorunu çözülmüş olarak sunulmaz.
+## Otomatik kontroller
 
-## Önceki 0.3.4 doğrulaması
+- Önek planlayıcısı: kök karakter kapsamı, alt önek üretimi, tam önek filtresi, bölme eşiği, derinlik ve istek bütçesi.
+- Android kaynak derlemesi, önek planlayıcısının saf mantık testleri ve mevcut veri bütünlüğü/oturum/veritabanı testleri birlikte çalıştırılıyor.
+- Önceki ilişki bütünlüğü, geçmiş metni, oturum, profil araması, yanıt politikası, veritabanı geçişi ve monitör testleri korunuyor.
+- CI, testlerden sonra Android 35 kaynak derlemesi/D8 işlemi yapıyor ve APK'yı özgün sertifika özetiyle doğruluyor.
 
-319 kontrol hedeflenir: önceki 316 kontrol ve REST istek bağlamı, belirtecin sayfalar boyunca sabitliği, iki listenin bağımsız belirteçleri için üç kontrol. GitHub Actions sonucu derleme kapısıdır. Testler sentetik yanıtlar kullanır; web sunucusunun yeni parametreleri uyguladığını veya canlı hesaptaki tüm eksiklerin giderildiğini kanıtlamaz. Giriş, erişim kısıtlamaları ve tam liste olmadan geçmişi değiştirmeme kuralları korunur.
+## Canlı cihaz sınırı
 
-## Önceki 0.3.3 doğrulaması
-
-- 316 otomatik kontrol başarılı; 42 HTTP taşıma/snapshot kontrolü dahil. Yerel Android kaynak/Java/D8 derlemesi başarılı. GitHub Actions testleri, APK imzasını ve derlemeyi yeniden doğrular.
-
-- Üretim InstagramClient kodu sentetik HTTPS yanıtlarıyla test edilir; canlı Instagram sunucusu kullanılmaz.
-- 178/200 takipçi ve 787/794 takip edilen ilk sonuçlarını, ayrı imleçlerle 17 takipçi ve 34 takip edilen GraphQL sayfası izler. Sonuçlar 200/200 ve 794/794 olur; son profil kontrolünden sonra tam snapshot döner. Bu, gerçek hesapta eksik 22/7 kişinin elde edildiğini göstermez.
-- İki eksik taramanın birleşimi toplamı karşılıyor olsa bile tam sayılmaz. İkinci yöntemde 429, GraphQL challenge, eksik bağlantı, tekrarlanan imleç, bağlantı toplamı değişikliği ve son profil değişikliği reddedilir. İlk tarama önizlemeleri kalır.
-- Başlangıç imleçleri bağımsızdır; özel karakterli imleç kodlaması ve terminal sayfadaki dolu imleç test edilir. Tam ilk listeler gereksiz ikinci istek üretmez.
-- Var olan SQLite geçmiş/önizleme izolasyonu, bildirim, hesap ayrımı ve Monitor testleri korunur. Şema değişikliği yoktur.
-- Bu ortamda Android cihaz/emülatör ve yeni yöntemin canlı oturumla uçtan uca testi yapılmadı. Instagram sorgu desteği ve eksik kişilerin nedeni henüz doğrulanmış değildir.
-
-## Önceki 0.3.2 doğrulaması
-
-- 302 otomatik kontrol: önceki 279 kontrole ek 4 HTTP/snapshot, 14 SQLite migration/önizleme izolasyonu, 3 rapor metni ve 2 gerçek Monitor kontrolü.
-- Üretim HTTP istemcisi 9 sayfada 182/200 takipçi sonucunu gözlemciye teslim eder, ardından 794/794 takip edilen kişi taramasını bitirir. Tam snapshot döndürmez; iki önizleme ayrı kalır. Rate yanıtında önce alınmış önizleme korunur ve ek istek yapılmaz.
-- Gerçek SQLite üzerinde v3 -> v4 tablo eklemesi önceki edges/events/last_success kayıtlarını değiştirmedi. Önizleme sorgularının oturum izolasyonu, 101 satırlık sayfalama, tam kayıt temizliğinin rollback durumunda önizlemeyi geri getirmesi ve FK cascade davranışı test edildi.
-- Üretim Monitor kodu önizlemeyi kaydederken tam commit veya bildirim çağırmadı. TXT başlıkları eksik toplamı ve zamanı açıkça ayırdı; önizleme kişisi takip olayı gibi yazılmadı.
-- Android kaynak/Java/D8 derlemesi yerelde başarılı. GitHub Actions aynı testleri ve orijinal imzayı doğrular.
-- Eksik 18 kişinin neden dönmediği belirlenmedi; veri uydurulmadı. 200 sayımını 182'ye eşitleyen veya eksik kayıtları takipten çıkma sayan bir değişiklik yok. Canlı kullanıcı hesabı, Android arayüzü ve cihazdaki SQLiteOpenHelper migration burada uçtan uca çalıştırılmadı.
-
-## Önceki 0.3.1 doğrulaması
-
-
-- 279 otomatik kontrol: önceki 263 kontrole ek olarak 6 sayfalama bütünlüğü ve 10 gerçek HTTP istemcisi/snapshot regresyon kontrolü.
-- Üretim InstagramClient sınıfı sentetik HTTPS yanıtlarıyla 200 takipçi ve 794 takip edilen kişiyi sayfalar arası ve sayfa içi tekrarlarla birleştirir. Son kişi, dönen imlecin sonraki isteğe aktarılması, tek final profil kontrolü ve benzersiz ilerleme sayıları kontrol edilir.
-- Tekrar eden satırlar eksik 2/3 listeyi tamamlamaz; sonraki listeye veya son sayım isteğine geçilmez. Null pk + geçerli id kabul edilir; ikisi de yoksa BF_LIST_ID oluşur. Sayfalama ortasında HTTP 429 gelirse işlem durur.
-- Üç ara sayfa boyunca benzersiz kişi sayısı artmazsa, imleç değişse bile durur. İmleç döngüsü, geçersiz kimlik, boş ara sayfa, fazla/eksik toplam ve bitmiş listeye yeni sayfa ekleme kontrolleri korunur.
-- Android kaynak, Java ve D8 derlemesi yerelde başarılı. CI aynı testleri ve önceki imza sertifikasını doğrular.
-- Kullanıcının ekran görüntüsündeki ortak hata mesajı tekrar/bozuk kimlik nedenlerini ayırmıyordu. Canlı sayfa yanıtları bu ortamda alınmadı; hatanın yalnızca tekrarlardan kaynaklandığı iddia edilmez. Yeni mesajlar bu iki durumu ayırır. Android cihazı veya canlı kullanıcı hesabında uçtan uca doğrulama yapılmadı.
-- Şema 3 ve mevcut geçmiş korunur. İki kişi listesi bütünüyle doğrulanmadan yeni takip/çıkış olayları kaydedilmez veya bildirilmez.
-
-## Önceki 0.3.0 doğrulaması
-
-
-- 263 otomatik kontrol: önceki 243 kontrole ek olarak 8 bildirim içerik/başlangıç/sınır kontrolü ve 12 gerçek SQLite sorgusuyla kendi hesap kimliği/çıkış filtresi/bildirim izolasyonu kontrolü.
-- Aynı kullanıcının sabit kimlikle bulunan eski kaydı; ad değişikliği; başka oturumun aynı hesabı izlemesi; takipçi çıkışlarının takip edilen çıkışlarından ayrılması; eşit toplam sayıda bir geliş ve bir çıkış; eski çıkışların tekrar bildirilmemesi denetlendi.
-- Profilim kaydı mevcut accounts tablosunda tutulur; şema değişmedi. ensureSelf işlemi transaction içinde sabit kimliği arar ve mevcut başlangıç kaydını yeniden kullanır. Bu metot cihazdaki SQLiteOpenHelper ile ayrıca çalıştırılmadı; kimlik seçimi ve bildirim sorguları SQLite üzerinde test edildi.
-- Android kaynak, Java ve D8 derlemesi yerelde tamamlandı. GitHub Actions testleri ve orijinal sertifikayla APK imzasını doğrular.
-- Alt sekmeler, Activity durum geri yükleme, gerçek Android bildirim teslimi ve canlı Instagram listeleri bu ortamda cihaz/emülatörde çalıştırılmadı. API ve giriş protokolü önceki çalışan sürümle aynıdır.
-
-## Önceki 0.2.4 incelemesi
-
-
-- Kullanıcı, 0.2.3 sürümünün kendi cihazında sorunsuz çalıştığını bildirdi. Giriş, oturum doğrulaması ve Instagram HTTP istek akışı bu güncellemede değiştirilmedi.
-- **243 otomatik kontrol başarılı:** önceki 221 kontrole ek olarak rapor listeleri için 7, gerçek SQLite sorgularında filtre/arama/sayfalama/liste dışa aktarma için 13, gerçek Monitor tamamlanma bildirimi için 2 kontrol.
-- Filtreli hareketlerde tekrar sayısının tüm geçmişten hesaplanması; başka oturumun verilerinin okunamaması; yüzde/alt çizgi içeren arama; 101 satırlık sayfa devam kontrolü; 205 kişilik eksiksiz rapor; başlangıç zamanı bilinmeyen kişi ve tespit aralığı doğrulandı.
-- Android kaynak/Java/D8 derlemesi yerelde tamamlandı. GitHub Actions aynı testleri tekrar çalıştırıp orijinal sertifikalı APK üretir.
-- Görsel Android UI testi, canlı Instagram liste testi ve arka plan bildirim teslimi bu yeni sürümde cihazda yapılmadı. Ekran yenileme sinyali üretim Monitor koduyla test edildi; Activity çizimi emülatörde çalıştırılmadı.
-- Şema 3 korunur; veri taşıma veya hesap/olay silme işlemi yoktur. Dışa aktarma mevcut yerel kayıtlardan tek veritabanı işlemi içinde hazırlanır ve ağ isteği göndermez.
-
-## Önceki 0.2.3 doğrulaması
-
-
-- 221 otomatik kontrol: 19 veri bütünlüğü, 15 Retry-After, 19 tarihçe/bağlantı, 15 bildirim/tanı, 21 SQLite, 25 gerçek Session sınıfıyla kayıtlı bekleme/oturum, 32 eski oturum protokolü, 22 profil sorgusu, 24 WebView sonuç/kimlik doğrulaması, 15 gerçek Monitor sınıfıyla kontrol akışı, 14 HTTP istemcisi kontrolü.
-- Eski iki saatlik yerel beklemeden elle profil yenilemeye geçiş; gerçek sunucu süresinin korunması; süre verilmeden tekrar gelen 429'un sayaç üretmemesi; arka planda tekrar istek yapılmaması; başarılı manuel kontrolle devam; hesabın değişmesi; kısmi liste hatasında geçmişin kaydedilmemesi test edildi. Android SharedPreferences/CookieManager ve ağ/Store sınırları bu testlerde sentetik; Session ve Monitor üretim kodudur.
-- Android kaynakları, native Java ve D8 derlemesi yerelde başarılı. Native Activity/WebView çalıştırılmadı; burada Android cihazı/emülatörü yok.
-- APK'nın `res/raw/session_probe.js` dosyasının aynısı açık ve kullanıcı tarafından izin verilmiş canlı Instagram test oturumunda, başka bir profil sayfasındayken çalıştırıldı. Ziyaret edilen profil yerine oturum sahibinin gezinme düğmesini doğru tanıdı. Bu test masaüstü Chrome'dadır; mobil WebView DOM yerleşiminin aynı olduğu doğrulanmadı.
-- Önceki canlı tarayıcı kontrolünde izin verilen hedefte 26 takipçi ve 27 takip edilen hesap, pencereler kaydırılarak tüm kullanıcı adlarıyla görüntülenmişti. Bu veriler APK'ya veya test fixtures içine gömülmedi.
-- Tarayıcıdaki doğrudan API isteği ortamın `ERR_BLOCKED_BY_CLIENT` hatasıyla açılamadı. Bu, Instagram HTTP 429 sonucu değildir. Tarayıcı çerezleri dışarı çıkarılmadı; canlı Android/API liste erişimi çözülmüş sayılmıyor.
-- Bildirim teslimi ve uzun süreli arka plan taraması cihazda denenmedi. İlk liste, eksik liste, hesap izolasyonu ve bildirim seçimi mantığı otomatik testlerle denetlenir.
-- Sürüm 0.2.3-test, versionCode 7, veritabanı şeması 3. Güncelleme kullanıcı geçmişini ve gerçek sunucu sürelerini korur; eski yerel beklemeyi kaldırır.
-- GitHub Actions aynı testleri çalıştırır, orijinal sertifikayla imzalı APK ve ona ait SHA256SUMS.txt üretir. CI sonucu ilgili Actions çalışmasından doğrulanmalıdır.
+Otomatik testler Instagram'ın canlı yanıtını garanti etmez. Özellikle arama sonuç sınırı, rate-limit ve hesap bazlı liste kısıtlamaları cihazda gerçek oturumla doğrulanmalıdır. Tam toplam elde edilemezse uygulamanın beklenen davranışı önizlemeyi saklamak ve doğrulanmış geçmişi değiştirmemektir.
