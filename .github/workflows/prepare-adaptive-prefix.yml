@@ -21,6 +21,7 @@ jobs:
       - name: Apply and test adaptive recovery
         run: |
           python3 tools/prepare_adaptive.py
+          sed -i 's/versionCode 16/versionCode 17/g' GITHUB-SETUP.md README.md TEST-RESULTS.md
           bash test.sh
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           bash build-apk.sh
