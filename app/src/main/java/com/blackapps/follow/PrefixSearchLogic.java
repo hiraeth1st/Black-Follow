@@ -8,8 +8,10 @@ public final class PrefixSearchLogic {
     public static final int SPLIT_AT=40;
     public static final int ROWS_AT=40;
     public static final int MAX_DEPTH=4;
-    public static final int MAX_QUERIES=220;
+    public static final int MAX_QUERIES=260;
+    public static final int ROOT_ROUNDS=2;
     public static final int MAX_TARGETED=64;
+    public static final int EXTRA_REST_PASSES=2;
 
     private PrefixSearchLogic() {}
 
@@ -64,8 +66,10 @@ public final class PrefixSearchLogic {
         return Math.min(MAX_TARGETED,Math.max(12,missing*4));
     }
 
-    public static boolean shouldSplit(String prefix,int matchingRows,int totalRows,boolean incomplete) {
+    /** Split when Instagram omitted an already-known username, declared a limit, or returned a dense/capped result. */
+    public static boolean shouldSplit(String prefix,int matchingRows,int totalRows,int knownPopulation,boolean incomplete) {
         return prefix!=null && prefix.length()<MAX_DEPTH &&
-            (incomplete || matchingRows>=SPLIT_AT || (matchingRows>0 && totalRows>=ROWS_AT));
+            (incomplete || matchingRows<knownPopulation || matchingRows>=SPLIT_AT ||
+                (matchingRows>0 && totalRows>=ROWS_AT));
     }
 }

@@ -11,10 +11,11 @@ public class PrefixSearchLogicTest {
         check(new HashSet<>(roots).size()==roots.size(),"root prefixes unique");
         check(PrefixSearchLogic.matches("Abc.Def","ab"),"prefix match is case insensitive");
         check(!PrefixSearchLogic.matches("name_ab","ab"),"substring-only search result rejected");
-        check(PrefixSearchLogic.shouldSplit("a",40,40,false),"dense matching result splits");
-        check(PrefixSearchLogic.shouldSplit("a",1,1,true),"server-limited result splits");
-        check(!PrefixSearchLogic.shouldSplit("a",0,50,false),"full-name noise alone does not explode the queue");
-        check(!PrefixSearchLogic.shouldSplit("abcd",100,100,true),"bounded depth prevents unbounded requests");
+        check(PrefixSearchLogic.shouldSplit("a",40,40,40,false),"dense matching result splits");
+        check(PrefixSearchLogic.shouldSplit("a",9,9,10,false),"omission of an already-known username splits");
+        check(PrefixSearchLogic.shouldSplit("a",1,1,1,true),"server-limited result splits");
+        check(!PrefixSearchLogic.shouldSplit("a",0,50,0,false),"full-name noise alone does not explode the queue");
+        check(!PrefixSearchLogic.shouldSplit("abcd",99,99,100,true),"bounded depth prevents unbounded requests");
         List<String> names=Arrays.asList("ab1","ab2","ab3","ac1","a9x","other");
         List<String> children=PrefixSearchLogic.prioritizedChildren("a",names);
         check(children.size()==38&&children.get(0).equals("ab"),"densest observed child is first");
@@ -24,7 +25,8 @@ public class PrefixSearchLogicTest {
         check(PrefixSearchLogic.targetedLimit(1)==12,"small gaps receive a useful targeted allowance");
         check(PrefixSearchLogic.targetedLimit(6)==24,"target allowance scales with the missing count");
         check(PrefixSearchLogic.targetedLimit(100)==PrefixSearchLogic.MAX_TARGETED,"target allowance is capped");
-        check(PrefixSearchLogic.MAX_QUERIES>=roots.size()+PrefixSearchLogic.MAX_TARGETED,"budget covers targets and every root");
+        check(PrefixSearchLogic.ROOT_ROUNDS==2,"two independent root sweeps are enabled");
+        check(PrefixSearchLogic.MAX_QUERIES>=PrefixSearchLogic.roots().size()*PrefixSearchLogic.ROOT_ROUNDS+PrefixSearchLogic.MAX_TARGETED,"budget covers targets and two root sweeps");
         System.out.println("PASS: "+checks+" adaptive prefix-search checks");
     }
 }

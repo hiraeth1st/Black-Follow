@@ -151,12 +151,15 @@ public final class Store extends SQLiteOpenHelper {
         }
         return out;
     }
-    /** Last fully verified identities, used only to target recovery queries after a short scan. */
+    /** Confirmed rows plus the previous partial preview; candidates are revalidated by an exact list search before use. */
     public LinkedHashMap<String,Edge> baseline(long account,String owner,String kind) {
         if(!(kind.equals("followers")||kind.equals("following")))throw new IllegalArgumentException("Geçersiz liste türü.");
         LinkedHashMap<String,Edge> out=new LinkedHashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery("SELECT e.person,e.username,e.name,e.since,e.lower_bound,e.avatar FROM edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=?",new String[]{""+account,owner,kind})) {
             while(c.moveToNext()) { Edge e=new Edge(c.getString(0),c.getString(1),c.getString(2));e.since=c.getLong(3);e.lower=c.getLong(4);e.avatar=c.getString(5);out.put(e.id,e); }
+        }
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT e.person,e.username,e.name,e.avatar FROM preview_edges e JOIN accounts a ON a.id=e.account JOIN previews p ON p.account=e.account AND p.kind=e.kind WHERE e.account=? AND a.owner=? AND e.kind=? AND p.observed>=a.last_success",new String[]{""+account,owner,kind})) {
+            while(c.moveToNext()) if(!out.containsKey(c.getString(0))) { Edge e=new Edge(c.getString(0),c.getString(1),c.getString(2));e.avatar=c.getString(3);out.put(e.id,e); }
         }
         return out;
     }

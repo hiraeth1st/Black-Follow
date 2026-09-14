@@ -40,6 +40,10 @@ public final class InstagramClient {
         listTrace.put("Target"+kind,"Önceki listeden hedefli arama "+("followers".equals(kind)?"takipçi":"takip")+": istek="+requests+", aday="+candidates+", bulunan="+recovered+", kişi="+unique+"/"+expected);
         saveListTrace();
     }
+    private void traceRestRecovery(String kind,String label,int pass,int pages,int rows,int added,int unique,int expected,boolean terminal,boolean limited,boolean unsupported) {
+        listTrace.put("RestRecovery"+kind+label+pass,"REST kurtarma "+("followers".equals(kind)?"takipçi":"takip")+": yöntem="+label+", tur="+pass+", sayfa="+pages+", satır="+rows+", yeni="+added+", kişi="+unique+"/"+expected+", terminal="+terminal+", sınırlı="+limited+", destek="+(!unsupported));
+        saveListTrace();
+    }
     private void saveListTrace(){Session.prefs(context).edit().putString("last_list_detail",String.join("\n",listTrace.values())).apply();}
     private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private final int requestDelayMs;private long lastRequest=0;
@@ -154,8 +158,10 @@ public final class InstagramClient {
         p.restricted=u.optBoolean("is_private",false) && permissionKnown && !follows && !owner.equals(p.id);
         return p;
     }
-    private String listPath(String id,String kind,String query,String rankToken,String cursor) throws Exception {
-        return "/api/v1/friendships/"+id+"/"+kind+"/?count=200&search_surface=follow_list_page&query="+URLEncoder.encode(query,"UTF-8")+"&enable_groups=true&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8"));
+    private String listPath(String id,String kind,String query,String rankToken,String cursor,String order) throws Exception {
+        return "/api/v1/friendships/"+id+"/"+kind+"/?count=200&search_surface=follow_list_page&query="+URLEncoder.encode(query,"UTF-8")+"&enable_groups=true"+
+            ("following".equals(kind)?"&includes_hashtags=false":"")+"&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+
+            (order.isEmpty()?"":"&order="+URLEncoder.encode(order,"UTF-8"))+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8"));
     }
     private Store.Edge edge(JSONObject u) throws Exception {
         String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.optString("username","");
@@ -170,7 +176,7 @@ public final class InstagramClient {
         if(expected==0){progress.page(kind,0,0,0);observer.received(kind,found,expected);return found;}
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);String cursor="";int rawRows=0;
         for(int page=0;page<200;page++) {
-            JSONObject j=get(listPath(id,kind,"",rankToken,cursor));
+            JSONObject j=get(listPath(id,kind,"",rankToken,cursor,""));
             JSONArray users=j.getJSONArray("users");rawRows+=users.length();ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {Store.Edge person=edge(users.getJSONObject(i));ids.add(person.id);found.put(person.id,person);}
             cursor=j.isNull("next_max_id")?"":j.optString("next_max_id","");
@@ -185,6 +191,38 @@ public final class InstagramClient {
             }
         }
         throw new IOException("Sayfa sınırına ulaşıldı; eksik liste kaydedilmedi.");
+    }
+    private static final class RestPassResult {int pages,rows,added;boolean terminal,limited,unsupported;}
+    private RestPassResult mergeRestPass(String id,String kind,int expected,String order,int pass,LinkedHashMap<String,Store.Edge> found) throws Exception {
+        RestPassResult result=new RestPassResult();int beforeAll=found.size(),stagnant=0;String cursor="";
+        HashSet<String> cursors=new HashSet<>();String token=owner+"_"+kind+"_recovery_"+pass+"_"+UUID.randomUUID().toString();
+        for(int page=0;page<200;page++) {
+            JSONObject j;
+            try {j=get(listPath(id,kind,"",token,cursor,order));}
+            catch(ViewerVerifier.Failure failure) {
+                if(page==0&&!order.isEmpty()&&(failure.code.equals("BF_HTTP_400")||failure.code.equals("BF_HTTP_404")||failure.code.equals("BF_QUERY")||failure.code.equals("BF_REJECTED"))) {
+                    result.unsupported=true;traceRestRecovery(kind,order,pass,0,0,0,found.size(),expected,false,false,true);return result;
+                }
+                throw failure;
+            }
+            result.pages++;JSONArray users=j.getJSONArray("users");result.rows+=users.length();int before=found.size();
+            for(int i=0;i<users.length();i++) {Store.Edge person=edge(users.getJSONObject(i));found.put(person.id,person);}
+            if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti; geçmiş korunuyor. [BF_LIST_CHANGED]");
+            stagnant=found.size()==before?stagnant+1:0;result.limited|=j.optBoolean("should_limit_list_of_followers",false);
+            String next=j.isNull("next_max_id")?"":j.optString("next_max_id","");boolean more=j.optBoolean("has_more",false)||!next.isEmpty();
+            if(!more){result.terminal=true;break;}
+            if(users.length()==0||next.isEmpty()||!cursors.add(next)||stagnant>=3)break;
+            cursor=next;
+        }
+        result.added=found.size()-beforeAll;traceRestRecovery(kind,order.isEmpty()?"yeni-rank":order,pass,result.pages,result.rows,result.added,found.size(),expected,result.terminal,result.limited,false);
+        return result;
+    }
+    private void recoverRestPasses(String id,String kind,int expected,LinkedHashMap<String,Store.Edge> found) throws Exception {
+        for(int pass=1;pass<=PrefixSearchLogic.EXTRA_REST_PASSES&&found.size()<expected;pass++)mergeRestPass(id,kind,expected,"",pass,found);
+        if("followers".equals(kind)&&found.size()<expected) {
+            mergeRestPass(id,kind,expected,"date_followed_latest",1,found);
+            if(found.size()<expected)mergeRestPass(id,kind,expected,"date_followed_earliest",1,found);
+        }
     }
     private static final class PrefixResult {int requests,rows,matches;boolean incomplete;}
     private static final class PrefixTask {
@@ -207,7 +245,7 @@ public final class InstagramClient {
     private PrefixResult searchPrefix(String id,String kind,String prefix,String rankToken,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
         PrefixResult result=new PrefixResult();String cursor="";HashSet<String> cursors=new HashSet<>(),matched=new HashSet<>();
         for(int page=0;page<20 && result.requests<budget;page++) {
-            JSONObject j=get(listPath(id,kind,prefix,rankToken,cursor));result.requests++;
+            JSONObject j=get(listPath(id,kind,prefix,rankToken,cursor,""));result.requests++;
             JSONArray users=j.getJSONArray("users");result.rows+=users.length();
             for(int i=0;i<users.length();i++) {
                 Store.Edge person=edge(users.getJSONObject(i));
@@ -232,7 +270,7 @@ public final class InstagramClient {
         int requests=0,recovered=0;
         for(int i=0;i<limit&&found.size()<expected;i++) {
             guard();Store.Edge candidate=candidates.get(i);
-            JSONObject j=get(listPath(id,kind,candidate.username,rankToken,""));requests++;
+            JSONObject j=get(listPath(id,kind,candidate.username,rankToken,"",""));requests++;
             JSONArray users=j.getJSONArray("users");
             for(int n=0;n<users.length();n++) {
                 Store.Edge person=edge(users.getJSONObject(n));
@@ -254,22 +292,29 @@ public final class InstagramClient {
         try {
             requests+=recoverBaseline(id,kind,expected,rankToken,baseline,found,PrefixSearchLogic.MAX_QUERIES-requests);
             if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
-            for(String prefix:PrefixSearchLogic.roots()) {
-                if(found.size()>=expected||requests>=PrefixSearchLogic.MAX_QUERIES)break;
-                guard();PrefixResult part=searchPrefix(id,kind,prefix,rankToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
-                requests+=part.requests;rows+=part.rows;
-                if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
-                boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,part.incomplete);
-                if(split)scheduleChildren(queue,scheduled,prefix,found);
-                traceSearch(kind,requests,rows,found.size(),expected,queue.size(),prefix.length(),split);
-                progress.page(kind+"_search",requests,found.size(),expected);
+            recoverRestPasses(id,kind,expected,found);
+            if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
+            for(int round=1;round<=PrefixSearchLogic.ROOT_ROUNDS&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES;round++) {
+                for(String prefix:PrefixSearchLogic.roots()) {
+                    if(found.size()>=expected||requests>=PrefixSearchLogic.MAX_QUERIES)break;
+                    guard();int knownBefore=PrefixSearchLogic.population(prefix,usernames(found));
+                    String queryToken=rankToken+"_root_"+round+"_"+prefix+"_"+UUID.randomUUID().toString();
+                    PrefixResult part=searchPrefix(id,kind,prefix,queryToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
+                    requests+=part.requests;rows+=part.rows;
+                    if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
+                    boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,knownBefore,part.incomplete);
+                    if(split)scheduleChildren(queue,scheduled,prefix,found);
+                    traceSearch(kind,requests,rows,found.size(),expected,queue.size(),prefix.length(),split);
+                    progress.page(kind+"_search",requests,found.size(),expected);
+                }
             }
             while(!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
-                guard();PrefixTask task=queue.poll();
-                PrefixResult part=searchPrefix(id,kind,task.prefix,rankToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
+                guard();PrefixTask task=queue.poll();int knownBefore=PrefixSearchLogic.population(task.prefix,usernames(found));
+                String queryToken=rankToken+"_child_"+task.prefix+"_"+UUID.randomUUID().toString();
+                PrefixResult part=searchPrefix(id,kind,task.prefix,queryToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
                 requests+=part.requests;rows+=part.rows;
                 if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
-                boolean split=PrefixSearchLogic.shouldSplit(task.prefix,part.matches,part.rows,part.incomplete);
+                boolean split=PrefixSearchLogic.shouldSplit(task.prefix,part.matches,part.rows,knownBefore,part.incomplete);
                 if(split)scheduleChildren(queue,scheduled,task.prefix,found);
                 traceSearch(kind,requests,rows,found.size(),expected,queue.size(),task.prefix.length(),split);
                 progress.page(kind+"_search",requests,found.size(),expected);

@@ -1,8 +1,16 @@
-# Black Follow — Android 0.4.2
+# Black Follow — Android 0.4.3
 
 Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip yerel geçmiş tutan bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
 
-## 0.4.2: hedefli kurtarma ve yoğunluk önceliği
+## 0.4.3: çoklu REST kurtarma ve eksik-dal tespiti
+
+- Takip edilenler isteklerine Instagram'ın kanonik `includes_hashtags=false` parametresi eklendi.
+- Normal taramadan sonra iki bağımsız rank-token REST geçişi birleştirilir; takipçilerde ayrıca en yeni/en eski sıralı geçişler denenir.
+- Önceki tam listeye ek olarak son yarım önizleme de yalnızca tam kullanıcı adıyla yeniden doğrulanacak aday kaynağıdır.
+- Aynı önek altında zaten bilinen kullanıcı sayısından daha az sonuç dönerse o dal eksik kabul edilip alt öneklere ayrılır.
+- Kök önekler iki bağımsız rank bağlamıyla taranır; toplam doğrulanmadan geçmiş yine değişmez.
+
+## 0.4.3: hedefli kurtarma ve yoğunluk önceliği
 
 - Normal liste eksik kaldığında, son doğrulanmış listede bulunup yeni yanıtta görünmeyen kullanıcılar önce tam kullanıcı adlarıyla hedefli aranır.
 - Geniş önek taramasında kalabalık alt önekler önce işlenir; olası olmayan boş kombinasyonlar kuyruğun başını tüketmez.
@@ -10,7 +18,7 @@ Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip
 - Elle başlatılan tam kontrolün güvenli süre sınırı 12 dakikadır; otomatik kontroller 7 dakikalık sınırı korur.
 - Tam sayı yine doğrulanamazsa önizleme saklanır ve geçmiş değişmez.
 
-## 0.4.2: eksik listeleri önek aramasıyla tamamlama
+## 0.4.3: eksik listeleri önek aramasıyla tamamlama
 
 Bu sürümde eski GraphQL “ikinci yöntem” ve görünür WebView kaydırma ekranı kaldırıldı. Liste yenileme artık tek bir doğrulanabilir akış kullanır:
 
@@ -25,7 +33,7 @@ Bu sürümde eski GraphQL “ikinci yöntem” ve görünür WebView kaydırma e
 
 Önek araması sınırlı bir istek ve derinlik bütçesine sahiptir. Instagram tüm kişileri hiçbir yöntemde göndermiyorsa alınan bölüm yalnızca **önizleme** olarak saklanır; doğrulanmış geçmiş korunur.
 
-Sürüm: **0.4.2-test**, `versionCode=17`, veritabanı şeması **4**. Aynı imza kullanıldığında önceki sürüm silinmeden güncellenebilir.
+Sürüm: **0.4.3-test**, `versionCode=18`, veritabanı şeması **4**. Aynı imza kullanıldığında önceki sürüm silinmeden güncellenebilir.
 
 ## Temel özellikler
 
@@ -48,7 +56,7 @@ Sürüm: **0.4.2-test**, `versionCode=17`, veritabanı şeması **4**. Aynı imz
 
 ## Telefonda kullanım
 
-1. GitHub Actions çıktısından `Black-Follow-0.4.2-test.apk` dosyasını indirip Android 8.0 veya üzeri cihaza kur.
+1. GitHub Actions çıktısından `Black-Follow-0.4.3-test.apk` dosyasını indirip Android 8.0 veya üzeri cihaza kur.
 2. **Instagram'a giriş yap** ekranında Instagram hesabınla giriş yap ve gerekiyorsa doğrulamayı tamamla.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas.
 4. Bir kullanıcı adı ekle veya **Profilim** sekmesini aç.
@@ -93,7 +101,7 @@ bash build-apk.sh
 İmzalı çıktı:
 
 ```text
-out/Black-Follow-0.4.2-test.apk
+out/Black-Follow-0.4.3-test.apk
 ```
 
 İmza değişirse Android mevcut kurulumun üzerine güncelleme yapmaz. Anahtar dosyası ve parolası repoya eklenmemelidir.
