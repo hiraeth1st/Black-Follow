@@ -24,7 +24,7 @@ jobs:
           bash test.sh
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           bash build-apk.sh
-          ! grep -R "0.4.1" app README.md TEST-RESULTS.md GITHUB-SETUP.md build-apk.sh
+          ! grep -R -E "0\.4\.1-test|Black-Follow-0\.4\.1|versionCode 16|android:versionCode=\"16\"" app README.md TEST-RESULTS.md GITHUB-SETUP.md build-apk.sh
       - name: Commit prepared sources
         run: |
           rm .github/workflows/prepare-adaptive-prefix.yml tools/prepare_adaptive.py
