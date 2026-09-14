@@ -8,6 +8,8 @@ public final class RequestTrace {
         if(path.startsWith("/api/v1/friendships/")&&path.contains("/followers/"))return "Takipçi listesi";
         if(path.startsWith("/api/v1/friendships/")&&path.contains("/following/"))return "Takip edilenler listesi";
         if(path.startsWith("/web/search/topsearch/"))return "Hesap adı araması";
+        if(path.startsWith("/graphql/") && path.contains("query_hash=37479f2b8209594dde7facb0d904896a"))return "Takipçi listesi (ikinci yöntem)";
+        if(path.startsWith("/graphql/") && path.contains("query_hash=58712303d941c6855d4e888c5f0cd22f"))return "Takip edilenler listesi (ikinci yöntem)";
         if(path.startsWith("/graphql/") && path.contains("doc_id="))return "Profil sayıları (GraphQL)";
         if(path.startsWith("/graphql/"))return "Oturum doğrulama";
         return "Instagram isteği";

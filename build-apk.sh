@@ -18,8 +18,8 @@ cp out/base.apk out/unsigned.apk
 if [[ -n "${BF_KEYSTORE:-}" ]]; then
   : "${BF_KEY_ALIAS:?Set BF_KEY_ALIAS}"
   : "${BF_KEY_PASSWORD:?Set BF_KEY_PASSWORD}"
-  "$bf_tools/apksigner" sign --ks "$BF_KEYSTORE" --ks-key-alias "$BF_KEY_ALIAS" --ks-pass env:BF_KEY_PASSWORD --key-pass env:BF_KEY_PASSWORD --out out/Black-Follow-0.3.2-test.apk out/aligned.apk
-  "$bf_tools/apksigner" verify --verbose out/Black-Follow-0.3.2-test.apk
+  "$bf_tools/apksigner" sign --ks "$BF_KEYSTORE" --ks-key-alias "$BF_KEY_ALIAS" --ks-pass env:BF_KEY_PASSWORD --key-pass env:BF_KEY_PASSWORD --out out/Black-Follow-0.3.3-test.apk out/aligned.apk
+  "$bf_tools/apksigner" verify --verbose out/Black-Follow-0.3.3-test.apk
 else
   echo 'Built out/aligned.apk (unsigned). Configure BF_KEYSTORE, BF_KEY_ALIAS and BF_KEY_PASSWORD to sign.'
 fi

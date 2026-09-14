@@ -1,4 +1,15 @@
-# Black Follow 0.3.2 doğrulaması
+# Black Follow 0.3.3 doğrulaması
+
+- 316 otomatik kontrol başarılı; 42 HTTP taşıma/snapshot kontrolü dahil. Yerel Android kaynak/Java/D8 derlemesi başarılı. GitHub Actions testleri, APK imzasını ve derlemeyi yeniden doğrular.
+
+- Üretim InstagramClient kodu sentetik HTTPS yanıtlarıyla test edilir; canlı Instagram sunucusu kullanılmaz.
+- 178/200 takipçi ve 787/794 takip edilen ilk sonuçlarını, ayrı imleçlerle 17 takipçi ve 34 takip edilen GraphQL sayfası izler. Sonuçlar 200/200 ve 794/794 olur; son profil kontrolünden sonra tam snapshot döner. Bu, gerçek hesapta eksik 22/7 kişinin elde edildiğini göstermez.
+- İki eksik taramanın birleşimi toplamı karşılıyor olsa bile tam sayılmaz. İkinci yöntemde 429, GraphQL challenge, eksik bağlantı, tekrarlanan imleç, bağlantı toplamı değişikliği ve son profil değişikliği reddedilir. İlk tarama önizlemeleri kalır.
+- Başlangıç imleçleri bağımsızdır; özel karakterli imleç kodlaması ve terminal sayfadaki dolu imleç test edilir. Tam ilk listeler gereksiz ikinci istek üretmez.
+- Var olan SQLite geçmiş/önizleme izolasyonu, bildirim, hesap ayrımı ve Monitor testleri korunur. Şema değişikliği yoktur.
+- Bu ortamda Android cihaz/emülatör ve yeni yöntemin canlı oturumla uçtan uca testi yapılmadı. Instagram sorgu desteği ve eksik kişilerin nedeni henüz doğrulanmış değildir.
+
+## Önceki 0.3.2 doğrulaması
 
 - 302 otomatik kontrol: önceki 279 kontrole ek 4 HTTP/snapshot, 14 SQLite migration/önizleme izolasyonu, 3 rapor metni ve 2 gerçek Monitor kontrolü.
 - Üretim HTTP istemcisi 9 sayfada 182/200 takipçi sonucunu gözlemciye teslim eder, ardından 794/794 takip edilen kişi taramasını bitirir. Tam snapshot döndürmez; iki önizleme ayrı kalır. Rate yanıtında önce alınmış önizleme korunur ve ek istek yapılmaz.

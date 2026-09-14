@@ -1,6 +1,19 @@
-# Black Follow — Android 0.3.2
+# Black Follow — Android 0.3.3
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+
+## 0.3.3: eksik listede ikinci sayfalama yöntemi
+
+İlk liste yöntemi 178/200 takipçi veya 787/794 takip gibi eksik sonuç verdiğinde yalnızca eksik kalan tür için bağımsız GraphQL sayfalaması başlar. Önce iki ilk liste okunur; sonra gerekirse takipçi ve takip edilenler ayrı ayrı yeniden alınır. Her yöntem kendi imlecini kullanır. İki eksik tarama birleştirilmez; bir taramanın benzersiz kimlik sayısı profil toplamına ulaşmalıdır. Sonunda profil toplamları tekrar kontrol edilir.
+
+- Normal yöntem tam sonuç döndürürse ek istek yapılmaz. İkinci yöntemde ilerleme ayrı etiketlenir.
+- `has_next_page` ve `end_cursor` birlikte değerlendirilir; son sayfada imleç bulunması tek başına yeni istek başlatmaz. Sayfa tekrarları kimlikle ayıklanır; imleç döngüsü veya değişen toplam taramayı durdurur.
+- HTTP 429, gerçek Retry-After, oturum veya güvenlik doğrulaması yanıtlarında işlem durur. Erişim reddini aşmak için başka yöntem denenmez.
+- İki yöntem de eksik kalırsa en geniş tek tarama önizlemesi saklanır. Eksik kişiler takipten çıkmış kabul edilmez. Önceki tam listeler ve olaylar korunur.
+
+İkinci yöntem tanımları [Instaloader kaynak kodu](https://github.com/instaloader/instaloader/blob/master/instaloader/structures.py) ve [instagrapi kaynak kodundaki](https://github.com/subzeroid/instagrapi/blob/master/instagrapi/mixins/user.py) GraphQL bağlantı sayfalamasına dayanır. Bu kaynaklar Instagram'ın resmi API garantisi değildir; sorguların her hesapta çalışacağı veya tüm kişilerin döneceği garanti edilmez. Mobil API parametreleri tahminen web isteğine eklenmedi.
+
+Sürüm **0.3.3-test**, `versionCode=12`, veritabanı şeması **4**. Giriş ve kayıt biçimi değişmedi. Sentetik HTTPS yanıtlarıyla 178/200 ve 787/794 ilk sonuçlarından sonra bağımsız 200/200 ve 794/794 sonuçlarının doğrulanması test edilir. Kullanıcının canlı hesabında veya Android cihazında bu sonuç henüz doğrulanmadı; eksik kişilerin asıl nedeni belirlenmiş değildir. Test ayrıntıları `TEST-RESULTS.md` dosyasında.
 
 ## 0.3.2: eksik liste önizlemesi
 
@@ -74,7 +87,7 @@ Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimli�
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.3.2-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.3.3-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -122,7 +135,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.3.2-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.3.3-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 

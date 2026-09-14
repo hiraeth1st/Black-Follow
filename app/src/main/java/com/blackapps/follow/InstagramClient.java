@@ -76,6 +76,14 @@ public final class InstagramClient {
             gate=ResponsePolicy.gate(code,j.optString("message"),!j.isNull("challenge"),!j.isNull("checkpoint_url"),!j.isNull("feedback_title"));
             enforceGate(gate,retryAfter);
             if(j.has("status") && !"ok".equals(j.optString("status"))) throw new ViewerVerifier.Failure("BF_REJECTED","Instagram veri isteğini kabul etmedi. Geçmiş korunuyor.");
+            JSONArray errors=j.optJSONArray("errors");
+            if(errors!=null && errors.length()>0) {
+                for(int i=0;i<errors.length();i++) {
+                    JSONObject error=errors.optJSONObject(i);
+                    if(error!=null) {gate=ResponsePolicy.gate(code,error.optString("message"),false,false,false);enforceGate(gate,retryAfter);}
+                }
+                throw new ViewerVerifier.Failure("BF_QUERY","Instagram sorguyu tamamlayamadı. Önceki bilgiler korunuyor.");
+            }
             guard();
             for(Map.Entry<String,List<String>> header:cn.getHeaderFields().entrySet()) if("Set-Cookie".equalsIgnoreCase(header.getKey()) && header.getValue()!=null)
                 for(String cookie:header.getValue()) CookieManager.getInstance().setCookie(Session.ORIGIN,cookie);
@@ -162,14 +170,65 @@ public final class InstagramClient {
         if(p.followers<0 || p.following<0) throw new ViewerVerifier.Failure("BF_PROFILE_COUNTS","Profil sayıları eksik; önceki bilgiler korunuyor.");
         return p;
     }
+    /** Independent connection traversal, used only after successful but short REST lists.
+     * Query definitions: Instaloader Profile.get_followers/get_followees and instagrapi
+     * user_followers_gql_chunk/user_following_gql_chunk. No merging across traversals.
+     */
+    private LinkedHashMap<String,Store.Edge> peopleGraphql(String id,String kind,int expected) throws Exception {
+        boolean followers="followers".equals(kind);
+        String hash=followers?"37479f2b8209594dde7facb0d904896a":"58712303d941c6855d4e888c5f0cd22f";
+        String field=followers?"edge_followed_by":"edge_follow";
+        RelationLogic.Pages validation=new RelationLogic.Pages(expected);
+        LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";
+        progress.page(kind+"_graphql",0,0,expected);
+        for(int page=0;page<1000;page++) {
+            JSONObject variables=new JSONObject().put("id",id).put("include_reel",true).put("fetch_mutual",false).put("first",followers?12:24);
+            if(!cursor.isEmpty())variables.put("after",cursor);
+            JSONObject j=get("/graphql/query/?query_hash="+hash+"&variables="+URLEncoder.encode(variables.toString(),"UTF-8"));
+            try {
+                JSONObject user=j.getJSONObject("data").getJSONObject("user");
+                if(user.has("id") && !id.equals(user.getString("id")))throw new IOException("Liste başka hesaba ait; geçmiş korunuyor. [BF_IDENTITY]");
+                JSONObject connection=user.getJSONObject(field);
+                if(connection.getInt("count")!=expected)throw new IOException("Liste toplamı kontrol sırasında değişti; geçmiş korunuyor. [BF_LIST_CHANGED]");
+                JSONArray edges=connection.getJSONArray("edges");ArrayList<String> ids=new ArrayList<>();
+                for(int i=0;i<edges.length();i++) {
+                    JSONObject u=edges.getJSONObject(i).getJSONObject("node");
+                    String pk=u.getString("id"),username=u.getString("username");
+                    if(username.isEmpty())throw new IOException("Eksik kullanıcı bilgisi; geçmiş korunuyor.");
+                    Store.Edge edge=new Store.Edge(pk,username,u.optString("full_name",""));
+                    String photo=u.optString("profile_pic_url","");if(ProfileLinks.avatar(photo))edge.avatar=photo;
+                    ids.add(pk);found.put(pk,edge);
+                }
+                JSONObject info=connection.getJSONObject("page_info");boolean more=info.getBoolean("has_next_page");
+                cursor=info.isNull("end_cursor")?"":info.getString("end_cursor");
+                validation.add(ids,cursor,more);
+                progress.page(kind+"_graphql",page+1,validation.count(),expected);
+                if(!more){guard();return found;}
+            } catch(JSONException malformed) {
+                throw new ViewerVerifier.Failure("BF_LIST_SCHEMA","İkinci liste yönteminin yanıtı okunamadı; ilk tarama önizlemesi korunuyor. [BF_LIST_SCHEMA]");
+            } catch(IllegalArgumentException invalid) {
+                throw new IOException((followers?"Takipçi":"Takip edilenler")+" • ikinci yöntem • sayfa "+(page+1)+" • "+validation.count()+"/"+expected+"\n"+invalid.getMessage(),invalid);
+            }
+        }
+        throw new IOException("İkinci liste yönteminde sayfa sınırına ulaşıldı; geçmiş korunuyor.");
+    }
+    private LinkedHashMap<String,Store.Edge> completeList(String id,String kind,int expected,LinkedHashMap<String,Store.Edge> first) throws Exception {
+        if(first.size()==expected)return first;
+        LinkedHashMap<String,Store.Edge> second=peopleGraphql(id,kind,expected);
+        // Keep the more informative individual preview; never union two incomplete scans.
+        if(second.size()>=first.size()){guard();observer.received(kind,second,expected);return second;}
+        return first;
+    }
     public Snapshot snapshot(Store.Account a,Profile profile,long start) throws Exception {
         Snapshot s=new Snapshot();s.start=System.currentTimeMillis();
         s.start=start;s.profile=profile;
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
         s.followers=people(s.profile.id,"followers",s.profile.followers);
         s.following=people(s.profile.id,"following",s.profile.following);
+        s.followers=completeList(s.profile.id,"followers",s.profile.followers,s.followers);
+        s.following=completeList(s.profile.id,"following",s.profile.following,s.following);
         if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
-            throw new PartialLists("Son tarama önizlemesi kaydedildi: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Instagram sayfaları profil toplamındaki tüm kişileri döndürmedi. Alınan kişileri ilgili sekmede görebilirsin. Doğrulanmış geçmiş değişmedi; takip/çıkış bildirimi üretilmedi. [BF_LIST_PARTIAL]");
+            throw new PartialLists("İki liste yöntemiyle de tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen en geniş tek tarama ilgili sekmede. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]");
         Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");
