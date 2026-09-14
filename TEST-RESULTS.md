@@ -1,13 +1,10 @@
-# Black Follow 0.2.1 doğrulaması
+# Black Follow 0.2.2 doğrulaması
 
-**135 kontrol başarılı:** 19 veri bütünlüğü, 15 bekleme politikası, 19 tarihçe/bağlantı, 15 yeni kişi bildirimi/güvenli tanı, 21 SQLite, 32 oturum/yanıt sınıflandırma, 14 HTTP istemcisi kontrolü.
-
-- HTTP testleri gerçek InstagramClient sınıfını süreç içindeki sahte HTTPS yanıtları ve küçük Android sınıf ikameleriyle çalıştırır. Canlı Instagram hesabı kullanılmaz. 429 ve Retry-After, 403 gövdesinde challenge, feedback işlem kısıtı, HTTP 200 bekleme yanıtı, null uyarı alanları, güvenli tanı, çerez başlığında harf farkı ve engelde tek istekten sonra durma doğrulandı.
-- SQLite testleri üretim SQL ifadeleriyle Python sqlite3 üzerinde çalışır. Geçiş, geçmiş koruma, tekrar takip ve tüm rapor kapsamına ek olarak bildirimlerin yalnızca son kontrolün eklenmelerini alması ve farklı oturumun olaylarını almaması doğrulandı.
-- Bildirim metni testleri başlangıç listesinin sessiz kalması, yalnızca çıkışların bildirilmemesi, takipçi/takip ayrımı, @firat eklenmesi ve büyük değişiklikte metnin sınırlanmasını kapsar.
-- Ana ekran ve giriş ekranındaki FLAG_SECURE kaldırıldı. Android POST_NOTIFICATIONS izni, bildirim kanalı, izin/ayar düğmesi ve hesabın Hareketler sekmesine bağlanan PendingIntent eklendi.
-- Java derlemesi, AAPT2, D8 ve imza doğrulaması başarılı. Paket com.blackapps.follow, versionCode 5, 0.2.1-test, Android 8.0+.
-- Önceki 0.2.0 ile aynı imza; uygulamayı silmeden güncellenebilir. APK'da önceden doldurulmuş hesap/oturum verisi veya özel imzalama anahtarı yoktur.
-- Android cihazda bildirim teslimi/izin ekranı, ekran görüntüsü, dosya seçici, canlı Instagram veri erişimi ve uzun süreli arka plan çalışması burada denenmedi. Kullanıcının bildirdiği gerçek erişim engelinin çözüldüğü iddia edilmez; yeni sürüm sonraki hatada istek aşamasını ve HTTP durumunu gösterir.
-
-Sertifika SHA-256: `e121d877773cebfa03381f990f8218e47bc1b07b33ee5f078950d3092880d0f5`
+- 157 yerel kontrol başarılı: 19 veri bütünlüğü, 15 bekleme, 19 tarihçe/bağlantı, 15 bildirim/tanı, 21 SQLite, 32 oturum, 22 profil sorgusu ve 14 HTTP istemcisi kontrolü.
+- Yeni profil testleri tam kullanıcı adı eşleşmesi, benzer hesabı reddetme, kayıtlı kimlikle aramasız sorgu, kullanıcı adı değişimi, POST hedefi/verileri, kimlik uyuşmazlığı, eksik kullanıcı, GraphQL hatası ve engelde ek istek yapılmamasını doğrular.
+- HTTP istemcisi sentetik HTTPS yanıtlarıyla çalıştırıldı; gerçek profil POST yolu, 429/Retry-After, diğer erişim engelleri, null alanlar ve çerez başlıkları kontrol edildi.
+- Android kaynakları, native Java ve D8 derlemesi yerelde başarılı. Cihazda canlı listeler, bildirim teslimi ve arka plan davranışı bu sürüm için denenmedi.
+- Kullanıcının izin verdiği herkese açık profil bu ortamdan açılmaya çalışıldı. Yanıt Instagram giriş sayfasına yönlendi; takipçi/takip sayısı veya kişi listesi alınamadı. Bu sonuç telefon oturumundaki yeni GraphQL akışının başarılı/başarısız olduğunu göstermez.
+- Önceki 0.2.1 cihaz görüntüsünde profil web isteği HTTP 429 ile engelleniyordu. 0.2.2 bu istek akışını değiştirir; canlı erişim sorununun çözüldüğü iddia edilmez.
+- Sürüm 0.2.2-test, versionCode 6, aynı veritabanı şeması 3. Güncelleme mevcut geçmişi ve bekleme süresini korur.
+- GitHub Actions her çalışmanın imzalı APK'sını ve ona ait SHA256SUMS.txt dosyasını birlikte üretir. Yerelde üretilen eski APK özeti yeni CI çıktısının özeti olarak kullanılmaz.

@@ -28,12 +28,13 @@ public final class InstagramClient {
         if(Thread.currentThread().isInterrupted() || System.currentTimeMillis()>deadline) throw new IOException("Kontrol tamamlanmadan durdu; geçmiş korunuyor.");
         if(!Session.matches(owner)) throw new AccessError("Instagram oturumu değişti veya sona erdi. Yeniden giriş yap.",true,false);
     }
-    private JSONObject get(String path) throws Exception {
+    private JSONObject get(String path) throws Exception {return request(path,null);}
+    private JSONObject request(String path,String form) throws Exception {
         guard();
         long delay=1500-(System.currentTimeMillis()-lastRequest);if(delay>0) Thread.sleep(delay);
         guard();lastRequest=System.currentTimeMillis();
         HttpURLConnection cn=(HttpURLConnection)new URL(Session.ORIGIN+path).openConnection();
-        cn.setInstanceFollowRedirects(false);cn.setConnectTimeout(15000);cn.setReadTimeout(20000);cn.setRequestMethod("GET");
+        cn.setInstanceFollowRedirects(false);cn.setConnectTimeout(15000);cn.setReadTimeout(20000);cn.setRequestMethod(form==null?"GET":"POST");
         String cookies=Session.cookies();
         cn.setRequestProperty("Cookie",cookies);
         cn.setRequestProperty("User-Agent",Session.prefs(context).getString("user_agent","Mozilla/5.0"));
@@ -44,6 +45,11 @@ public final class InstagramClient {
         cn.setRequestProperty("X-CSRFToken",Session.cookieValue(cookies,"csrftoken"));
         int code=-1;String gate="";
         try {
+            if(form!=null) {
+                byte[] body=form.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                cn.setDoOutput(true);cn.setRequestProperty("Content-Type","application/x-www-form-urlencoded; charset=UTF-8");cn.setFixedLengthStreamingMode(body.length);
+                try(OutputStream out=cn.getOutputStream()){out.write(body);}
+            }
             code=cn.getResponseCode();
             long retryAfter=RetryPolicy.serverDelay(cn.getHeaderField("Retry-After"),System.currentTimeMillis());
             if(code!=200) {
@@ -68,7 +74,7 @@ public final class InstagramClient {
                 for(String cookie:header.getValue()) CookieManager.getInstance().setCookie(Session.ORIGIN,cookie);
             return j;
         } catch(Exception e) {
-            String detail=RequestTrace.detail(path,code,gate);
+            String detail=RequestTrace.detail(form==null?path:path+"?doc_id="+ProfileLookup.DOC_ID,code,gate);
             Session.prefs(context).edit().putString("last_error_detail",detail).apply();
             if(e instanceof AccessError) {AccessError a=(AccessError)e;throw new AccessError(a.getMessage()+"\n"+detail,a.auth,a.rate,a.retryAfterMs);}
             if(e instanceof ViewerVerifier.Failure) {ViewerVerifier.Failure f=(ViewerVerifier.Failure)e;throw new ViewerVerifier.Failure(f.code,f.getMessage()+"\n"+detail);}
@@ -102,12 +108,10 @@ public final class InstagramClient {
         return "Oturum kontrolünde uygulama hatası oluştu. [BF_INTERNAL]";
     }
     private Profile profile(String username,String knownId) throws Exception {
-        JSONObject u;
-        if(knownId.isEmpty()) u=get("/api/v1/users/web_profile_info/?username="+URLEncoder.encode(username,"UTF-8")).getJSONObject("data").getJSONObject("user");
-        else {
-            if(!knownId.matches("[0-9]+")) throw new IOException("Geçersiz hesap kimliği.");
-            u=get("/api/v1/users/"+knownId+"/info/").getJSONObject("user");
-        }
+        JSONObject u=ProfileLookup.read(username,knownId,new ProfileLookup.Request(){
+            public JSONObject get(String path)throws Exception{return InstagramClient.this.get(path);}
+            public JSONObject post(String path,String form)throws Exception{return InstagramClient.this.request(path,form);}
+        });
         Profile p=new Profile();p.id=u.optString("pk",u.optString("id",""));p.username=u.getString("username");p.name=u.optString("full_name","");
         if(!p.id.matches("[0-9]+")) throw new IOException("Instagram hesap kimliği göndermedi.");
         p.followers=u.has("edge_followed_by")?u.getJSONObject("edge_followed_by").getInt("count"):u.getInt("follower_count");
@@ -152,7 +156,7 @@ public final class InstagramClient {
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
         s.followers=people(s.profile.id,"followers",s.profile.followers);
         s.following=people(s.profile.id,"following",s.profile.following);
-        Profile after=profile(s.profile.username,a.remote);
+        Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");
         guard();s.end=System.currentTimeMillis();return s;

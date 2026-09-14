@@ -24,9 +24,7 @@ public final class ViewerVerifier {
         String id=user.optString("id",user.optString("pk",""));
         if(id.isEmpty()) {
             // Resolve the username that the authenticated viewer query returned; never trust a user-entered name.
-            JSONObject profile=request.get("/api/v1/users/web_profile_info/?username="+URLEncoder.encode(username,"UTF-8"));
-            JSONObject profileData=profile.optJSONObject("data"), p=profileData==null?null:profileData.optJSONObject("user");
-            if(p==null) throw new Failure("BF_VIEWER_ID","Instagram oturum kimliği kontrol edilemedi.");
+            JSONObject p=ProfileLookup.resolve(username,request);
             if(!username.equalsIgnoreCase(p.optString("username",""))) throw new Failure("BF_IDENTITY","Oturum ve profil bilgisi uyuşmuyor. Yeniden giriş yap.");
             id=p.optString("id",p.optString("pk",""));
         }

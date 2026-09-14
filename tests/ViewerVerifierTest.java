@@ -18,8 +18,8 @@ public class ViewerVerifierTest {
         check(ViewerVerifier.verify("123",path->json("{\"data\":{\"user\":{\"pk\":123,\"username\":\"test_user\"}}}")).equals("test_user"),"numeric alternate id");
         calls[0]=0;
         check(ViewerVerifier.verify("123",path->{calls[0]++;if(calls[0]==1)return json("{\"data\":{\"user\":{\"username\":\"test_user\"}}}");
-            check(path.equals("/api/v1/users/web_profile_info/?username=test_user"),"only authenticated viewer name can be resolved");
-            return json("{\"data\":{\"user\":{\"username\":\"test_user\",\"id\":\"123\"}}}");}).equals("test_user"),"missing id resolved from viewer username");
+            check(path.equals("/web/search/topsearch/?context=blended&query=test_user&include_reel=false&__a=1"),"only authenticated viewer name can be resolved");
+            return json("{\"users\":[{\"user\":{\"username\":\"test_user\",\"id\":\"123\"}}]}");}).equals("test_user"),"missing id resolved from viewer username");
         check(calls[0]==2,"one optional identity lookup");
         failure("BF_OWNER",()->ViewerVerifier.verify("",path->{throw new AssertionError("must not request without owner");}));
         failure("BF_OWNER",()->ViewerVerifier.verify("abc",path->{throw new AssertionError("must reject malformed owner");}));
@@ -30,7 +30,7 @@ public class ViewerVerifierTest {
         failure("BF_VIEWER_NAME",()->ViewerVerifier.verify("123",path->json("{\"data\":{\"user\":{\"id\":\"123\",\"username\":\"bad&injected=value\"}}}")));
         failure("BF_IDENTITY",()->ViewerVerifier.verify("123",path->json("{\"data\":{\"user\":{\"id\":\"999\",\"username\":\"test_user\"}}}")));
         calls[0]=0;
-        failure("BF_IDENTITY",()->ViewerVerifier.verify("123",path->{calls[0]++;return calls[0]==1?json("{\"data\":{\"user\":{\"username\":\"test_user\"}}}"):json("{\"data\":{\"user\":{\"username\":\"someone_else\",\"id\":\"123\"}}}");}));
+        failure("BF_SEARCH_NO_EXACT",()->ViewerVerifier.verify("123",path->{calls[0]++;return calls[0]==1?json("{\"data\":{\"user\":{\"username\":\"test_user\"}}}"):json("{\"users\":[{\"user\":{\"username\":\"someone_else\",\"id\":\"123\"}}]}");}));
         calls[0]=0;IOException denied=new IOException("denied");
         try {ViewerVerifier.verify("123",path->{calls[0]++;throw denied;});throw new AssertionError("denial ignored");}catch(IOException e){check(e==denied && calls[0]==1,"auth/transport failure is propagated, no bypass or retry");}
         check(ResponsePolicy.gate(429,"",false,false,false).equals("BF_RATE"),"429 stops all requests");

@@ -67,7 +67,7 @@ public class LoginActivity extends Activity {
                 else new AlertDialog.Builder(this).setTitle("Oturum testi").setMessage(resultError+"\n\nHata bilgisini kopyalayıp paylaşabilirsin; parola veya oturum bilgisi içermez.")
                     .setNeutralButton("Hata bilgisini kopyala",(d,w)->{
                         android.content.ClipboardManager clipboard=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
-                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Black Follow hata bilgisi","Black Follow 0.2.1 • oturum testi\n"+resultError));
+                        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("Black Follow hata bilgisi","Black Follow 0.2.2 • oturum testi\n"+resultError));
                         Toast.makeText(this,"Hata bilgisi kopyalandı",Toast.LENGTH_SHORT).show();
                     }).setPositiveButton("Tamam",null).show();
             });

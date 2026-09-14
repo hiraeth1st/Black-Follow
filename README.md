@@ -1,8 +1,23 @@
-# Black Follow — Android 0.2.1 erişim testi
+# Black Follow — Android 0.2.2 erişim testi
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
 
 ## Bu sürümün durumu
+
+### 0.2.2 profil sorgusu uyumluluk denemesi
+
+0.2.1 cihaz denemesinde ilk `web_profile_info` çağrısına HTTP 429 geldiği, profil sayılarının ve kişi listelerinin hiç alınamadığı doğrulandı. Artan yerel bekleme bu sorunu çözmedi.
+
+Bu sürümde profil akışı değişti: oturumla yapılan hesap aramasında kullanıcı adı tam eşleşmeyle kimliğe çözümlenir; sayılar sabit kimlikle profil GraphQL sorgusundan alınır. Kayıtlı kimlik varsa yeniden arama yapılmaz. Tam liste sonrası sayım kontrolü de aynı kimliği kullanır. Giriş doğrulamasında eksik kimlik için yapılan isteğe bağlı çözümleme de bu aramayı kullanır. Benzer adlı hesap seçilmez; kimlik uyuşmazlığı ve eksik/hatalı yanıt kaydı durdurur. Takipçi ve takip edilenler listelerini alma işlemi hâlâ Instagram erişimine bağlıdır.
+
+Bu bir erişim engelinden sonra farklı uç noktaları sırayla deneyen mekanizma değildir. Herhangi bir ret/429 sonrasında işlem durur. Önceki bekleme süreleri korunur; güncelleme bunları sıfırlamaz. Kullanıcı adı arama sonucu dönmezse başka yöntem denenmez.
+
+Kaynak incelemesinde eski GraphQL arama sorgusunun da değiştiği görüldüğünden o sorgu kullanılmadı. Güncel istemcide bulunan topsearch ve oturumlu profil ayrıntısı biçimleri için yeni Java uyarlaması yazıldı. Bu API'ler resmî entegrasyon garantisi sunmaz. **157 yerel kontrolün geçmesi canlı Instagram erişiminin çalıştığını kanıtlamaz.** İzin verilen herkese açık bir profilin bu ortamdan canlı açılış denemesi Instagram giriş sayfasına yönlendi; sayı veya kişi listesi alınamadı. Telefon oturumu bu ortama aktarılmadı.
+
+Sürüm kodu 6, veritabanı şeması 3. Mevcut uygulamanın üzerine aynı imzayla kurulur.
+
+Protokol referansı: https://github.com/instaloader/instaloader/blob/master/instaloader/structures.py
+İstek biçimi: https://github.com/instaloader/instaloader/blob/master/instaloader/instaloadercontext.py
 
 ### 0.2.1 ekran görüntüsü, bildirim ve erişim tanısı
 
@@ -47,7 +62,7 @@ Bu bir **erişim testi sürümüdür**. APK derleme ve kayıt mantığı kontrol
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.2.1-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.2.2-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -95,7 +110,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.2.1-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.2.2-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 
