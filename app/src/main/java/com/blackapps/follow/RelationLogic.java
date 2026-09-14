@@ -5,6 +5,11 @@ import java.util.*;
 /** Pure logic: identity is Instagram's numeric user ID, never the username. */
 public final class RelationLogic {
     public static final int MAX_EXPECTED=100000;
+    public static final class PageIssue extends IllegalArgumentException {
+        public final boolean recoverable;
+        PageIssue(String message,boolean recoverable){super(message);this.recoverable=recoverable;}
+    }
+    public static boolean recoverable(Throwable error){return error instanceof PageIssue && ((PageIssue)error).recoverable;}
     public static final class Change {
         public final Set<String> added, removed;
         Change(Set<String> a, Set<String> r) { added=a; removed=r; }
@@ -27,22 +32,22 @@ public final class RelationLogic {
             this.expected=expected;
         }
         public void add(Collection<String> page, String next, boolean more) {
-            if(finished) throw new IllegalArgumentException("Biten listeye yeni sayfa geldi.");
+            if(finished) throw new PageIssue("Biten listeye yeni sayfa geldi.",false);
             int before=ids.size();
             for(String id:page) {
-                if(id==null || !id.matches("[0-9]+"))throw new IllegalArgumentException("Liste geçersiz kişi kimliği içeriyor; geçmiş korunuyor. [BF_LIST_ID]");
-                // Page boundaries can overlap. Compare unique identities, not raw row count.
+                if(id==null || !id.matches("[0-9]+"))throw new PageIssue("Liste geçersiz kişi kimliği içeriyor; geçmiş korunuyor. [BF_LIST_ID]",false);
                 ids.add(id);
             }
             stagnantPages=ids.size()==before?stagnantPages+1:0;
-            if(ids.size()>expected) throw new IllegalArgumentException("Liste kontrol sırasında değişti; geçmiş korunuyor.");
+            if(ids.size()>expected) throw new PageIssue("Liste kontrol sırasında değişti; geçmiş korunuyor.",false);
             if(more && (page.isEmpty() || next.isEmpty() || !cursors.add(next)))
-                throw new IllegalArgumentException("Liste tamamlanamadı; geçmiş korunuyor.");
-            if(more && stagnantPages>=3)throw new IllegalArgumentException("Liste üç sayfadır ilerlemiyor ("+ids.size()+"/"+expected+"); geçmiş korunuyor. [BF_LIST_STALLED]");
+                throw new PageIssue("Liste imleci tamamlanamadı; bağımsız kurtarma geçişi denenecek. [BF_LIST_CURSOR]",true);
+            if(more && stagnantPages>=3)
+                throw new PageIssue("Liste üç sayfadır ilerlemiyor ("+ids.size()+"/"+expected+"); bağımsız kurtarma geçişi denenecek. [BF_LIST_STALLED]",true);
             finished=!more;
         }
         public void finish() {
-            if(!finished || ids.size()!=expected) throw new IllegalArgumentException("Listenin tamamı alınamadı ("+ids.size()+"/"+expected+"); geçmiş korunuyor.");
+            if(!finished || ids.size()!=expected) throw new PageIssue("Listenin tamamı alınamadı ("+ids.size()+"/"+expected+"); geçmiş korunuyor.",true);
         }
     }
 }
