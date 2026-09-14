@@ -20,6 +20,16 @@ jobs:
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - name: Apply and verify transport audit
         run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path=Path('tools/finalize_transport_045.py')
+          text=path.read_text(encoding='utf-8')
+          bad='benzersiz kişi'+chr(92)+'\n'+'"+e.getMessage()'
+          good='benzersiz kişi'+chr(92)+chr(92)+'n'+'"+e.getMessage()'
+          if text.count(bad)!=1:
+              raise SystemExit(f'expected one malformed Java newline, found {text.count(bad)}')
+          path.write_text(text.replace(bad,good,1),encoding='utf-8')
+          PY
           python3 tools/finalize_transport_045.py
           bash test.sh
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
@@ -38,4 +48,4 @@ jobs:
           git add -A
           git commit -m "Align relationship transport and recover cursor stalls"
           git push origin HEAD:follower-audit-045
-# trigger
+# trigger 2
