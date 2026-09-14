@@ -1,51 +1,10 @@
-name: Finalize Transport Audit 0.4.5
+name: Superseded Transport Audit 0.4.5
 on:
-  push:
-    branches: [follower-audit-045]
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
-  finalize:
-    if: github.actor != 'github-actions[bot]'
+  superseded:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
-        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
-      - name: Apply and verify transport audit
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          path=Path('tools/finalize_transport_045.py')
-          text=path.read_text(encoding='utf-8')
-          bad='benzersiz kişi'+chr(92)+'\n'+'"+e.getMessage()'
-          good='benzersiz kişi'+chr(92)+chr(92)+'n'+'"+e.getMessage()'
-          if text.count(bad)!=1:
-              raise SystemExit(f'expected one malformed Java newline, found {text.count(bad)}')
-          path.write_text(text.replace(bad,good,1),encoding='utf-8')
-          PY
-          python3 tools/finalize_transport_045.py
-          bash test.sh
-          export ANDROID_SDK_ROOT="$ANDROID_HOME"
-          bash build-apk.sh
-          grep -F 'rankToken(owner,UUID.randomUUID().toString())' app/src/main/java/com/blackapps/follow/InstagramClient.java
-          grep -F 'WEB_SEARCH_SIZE=100' app/src/main/java/com/blackapps/follow/RelationshipRequest.java
-          grep -F 'relationshipSearch(id,kind,query)' app/src/main/java/com/blackapps/follow/InstagramClient.java
-          grep -F 'RelationLogic.recoverable(e)' app/src/main/java/com/blackapps/follow/InstagramClient.java
-          grep -F 'X-ASBD-ID' app/src/main/java/com/blackapps/follow/InstagramClient.java
-          ! grep -R -E 'SEARCH_COUNT=1000|&count=1000|_recovery_' app/src/main/java
-      - name: Commit final transport source
-        run: |
-          rm .github/workflows/finalize-transport-045.yml tools/finalize_transport_045.py
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Align relationship transport and recover cursor stalls"
-          git push origin HEAD:follower-audit-045
-# trigger 2
+      - run: echo 'Superseded by finalize-transport-v2-045.yml'
