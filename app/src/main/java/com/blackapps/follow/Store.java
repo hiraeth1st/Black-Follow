@@ -6,7 +6,7 @@ import android.database.sqlite.*;
 import java.util.*;
 
 public final class Store extends SQLiteOpenHelper {
-    public Store(Context c) { super(c, "black-follow.db", null, 3); }
+    public Store(Context c) { super(c, "black-follow.db", null, 4); }
     public void onConfigure(SQLiteDatabase db) { db.setForeignKeyConstraintsEnabled(true); }
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE accounts (id INTEGER PRIMARY KEY, owner TEXT NOT NULL, remote TEXT, username TEXT NOT NULL, title TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1, followers INTEGER, following INTEGER, last_started INTEGER NOT NULL DEFAULT 0, last_success INTEGER NOT NULL DEFAULT 0, last_attempt INTEGER NOT NULL DEFAULT 0, next_due INTEGER NOT NULL DEFAULT 0, failures INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'İlk kontrol bekleniyor', UNIQUE(owner,username), UNIQUE(owner,remote))");
@@ -15,6 +15,7 @@ public final class Store extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX events_account_time ON events(account, detected DESC, id DESC)");
         addProfileColumns(db);
         addHistoryColumns(db);
+        addPreviewTables(db);
     }
     private void addProfileColumns(SQLiteDatabase db) {
         db.execSQL("ALTER TABLE accounts ADD COLUMN profile_at INTEGER NOT NULL DEFAULT 0");
@@ -28,7 +29,11 @@ public final class Store extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX events_person_history ON events(account,kind,person,id)");
         db.execSQL("INSERT INTO observations(account,observed,followers,following,source) SELECT id,profile_at,followers,following,'migrated' FROM accounts WHERE profile_at>0 AND followers IS NOT NULL AND following IS NOT NULL");
     }
-    public void onUpgrade(SQLiteDatabase db,int a,int b) {if(a<2) addProfileColumns(db);if(a<3)addHistoryColumns(db);}
+    private void addPreviewTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE previews (account INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE, kind TEXT NOT NULL, expected INTEGER NOT NULL, received INTEGER NOT NULL, observed INTEGER NOT NULL, PRIMARY KEY(account,kind))");
+        db.execSQL("CREATE TABLE preview_edges (account INTEGER NOT NULL, kind TEXT NOT NULL, person TEXT NOT NULL, username TEXT NOT NULL, name TEXT NOT NULL, avatar TEXT NOT NULL, PRIMARY KEY(account,kind,person), FOREIGN KEY(account,kind) REFERENCES previews(account,kind) ON DELETE CASCADE)");
+    }
+    public void onUpgrade(SQLiteDatabase db,int a,int b) {if(a<2) addProfileColumns(db);if(a<3)addHistoryColumns(db);if(a<4)addPreviewTables(db);}
     public static final class Account {
         public long id,lastStarted,lastSuccess,lastAttempt,nextDue,profileAt,profileAttempt;
         public int followers,following,failures;
@@ -116,6 +121,29 @@ public final class Store extends SQLiteOpenHelper {
         public long since,lower;
         public Edge(String i,String u,String n) { id=i;username=u;name=n; }
     }
+    public static final class Preview {public int expected,received;public long observed;}
+    public Preview preview(long account,String owner,String kind) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT p.expected,p.received,p.observed FROM previews p JOIN accounts a ON a.id=p.account WHERE p.account=? AND a.owner=? AND p.kind=? AND p.observed>=a.last_success",new String[]{""+account,owner,kind})) {
+            if(!c.moveToFirst())return null;Preview p=new Preview();p.expected=c.getInt(0);p.received=c.getInt(1);p.observed=c.getLong(2);return p;
+        }
+    }
+    public void savePreview(Account a,String kind,LinkedHashMap<String,Edge> people,int expected) {
+        if(!(kind.equals("followers")||kind.equals("following")) || expected<0 || people.size()>expected)throw new IllegalArgumentException("Geçersiz liste önizlemesi.");
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try {
+            if(get(a.id,a.owner)==null)return;
+            db.delete("previews","account=? AND kind=?",new String[]{""+a.id,kind});
+            ContentValues v=new ContentValues();v.put("account",a.id);v.put("kind",kind);v.put("expected",expected);v.put("received",people.size());v.put("observed",System.currentTimeMillis());db.insertOrThrow("previews",null,v);
+            for(Edge e:people.values()) {
+                ContentValues row=new ContentValues();row.put("account",a.id);row.put("kind",kind);row.put("person",e.id);row.put("username",e.username);row.put("name",e.name);row.put("avatar",e.avatar);db.insertOrThrow("preview_edges",null,row);
+            }
+            db.setTransactionSuccessful();
+        }finally{db.endTransaction();}
+    }
+    public Cursor previewEdges(long account,String owner,String kind,String search,int offset) {
+        String q="%"+search.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
+        return getReadableDatabase().rawQuery("SELECT e.username,e.name,0,0,e.avatar,e.person FROM preview_edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? AND (e.username LIKE ? ESCAPE '\\' OR e.name LIKE ? ESCAPE '\\') ORDER BY e.username COLLATE NOCASE LIMIT 101 OFFSET ?",new String[]{""+account,owner,kind,q,q,""+offset});
+    }
     private LinkedHashMap<String,Edge> previous(long account,String kind) {
         LinkedHashMap<String,Edge> out=new LinkedHashMap<>();
         try(Cursor c=getReadableDatabase().rawQuery("SELECT person,username,name,since,lower_bound,avatar FROM edges WHERE account=? AND kind=?",new String[]{""+account,kind})) {
@@ -145,7 +173,9 @@ public final class Store extends SQLiteOpenHelper {
         try {
             Account latest=get(a.id,a.owner); if(latest==null || (!latest.enabled&&!manual)) return false;
             if(!a.remote.isEmpty() && !a.remote.equals(s.profile.id)) throw new IllegalStateException("Hesap kimliği değişti; kayıt yapılmadı.");
+            if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)throw new IllegalArgumentException("Eksik liste geçmişe kaydedilemez.");
             apply(a,"followers",s.followers,s.end);apply(a,"following",s.following,s.end);
+            db.delete("previews","account=?",new String[]{""+a.id});
             ContentValues v=new ContentValues();v.put("remote",s.profile.id);v.put("username",s.profile.username);v.put("title",s.profile.name);v.put("followers",s.followers.size());v.put("following",s.following.size());v.put("last_started",s.start);v.put("last_success",s.end);v.put("last_attempt",s.end);v.put("next_due",s.end+interval);v.put("failures",0);v.put("status","İki liste alındı • "+(a.lastSuccess==0?"ilk kayıt":"geçmiş güncellendi"));
             v.put("profile_at",s.end);
             observe(a.id,s.end,s.followers.size(),s.following.size(),"full");
@@ -194,6 +224,13 @@ public final class Store extends SQLiteOpenHelper {
                     while(c.moveToNext()){report.person(c.getString(0),c.getString(1),c.getLong(2),c.getLong(3));count++;}
                 }
                 report.listCount(count);
+            }
+            for(String kind:new String[]{"followers","following"}) {
+                Preview preview=preview(a.id,a.owner,kind);if(preview==null)continue;
+                report.previewHeading(kind,preview.received,preview.expected,preview.observed);
+                try(Cursor c=db.rawQuery("SELECT e.username,e.name FROM preview_edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? ORDER BY e.username COLLATE NOCASE",new String[]{""+a.id,a.owner,kind})) {
+                    while(c.moveToNext())report.previewPerson(c.getString(0),c.getString(1));
+                }
             }
             report.finish();db.setTransactionSuccessful();
         }finally{db.endTransaction();}

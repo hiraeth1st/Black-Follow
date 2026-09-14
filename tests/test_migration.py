@@ -32,7 +32,7 @@ except RuntimeError:pass
 assert db.execute('SELECT followers,following,profile_at,last_success FROM accounts').fetchone()==(3,4,2000,1000)
 assert db.execute('SELECT account,kind,person,username,name,since,lower_bound FROM edges').fetchall()==before_edges
 assert db.execute('SELECT * FROM events').fetchall()==before_events
-history=source.split('private void addHistoryColumns(SQLiteDatabase db) {',1)[1].split('public void onUpgrade',1)[0]
+history=source.split('private void addHistoryColumns(SQLiteDatabase db) {',1)[1].split('private void addPreviewTables',1)[0]
 with db:
     for sql in statements(history):db.execute(sql)
 assert db.execute('SELECT avatar FROM edges').fetchone()==('',)
@@ -124,4 +124,39 @@ assert db.execute(notification_sql,('3','123',str(last_self))).fetchall()==[]
 self_departures=db.execute(events_sql,('3','123','followers','followers','removed','removed','%','%','0')).fetchall()
 assert len(self_departures)==1 and self_departures[0][2]=='departed'
 assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
-print('PASS: 46 SQLite migration, self identity, notifications, export and isolation checks')
+# Execute v3 -> v4 migration without touching confirmed lists or events.
+preview_migration=source.split('private void addPreviewTables(SQLiteDatabase db) {',1)[1].split('public void onUpgrade',1)[0]
+prior_edges=db.execute('SELECT * FROM edges ORDER BY account,kind,person').fetchall()
+prior_events=db.execute('SELECT * FROM events ORDER BY id').fetchall()
+prior_success=db.execute('SELECT id,last_success FROM accounts ORDER BY id').fetchall()
+for sql in statements(preview_migration):db.execute(sql)
+assert db.execute('SELECT * FROM edges ORDER BY account,kind,person').fetchall()==prior_edges
+assert db.execute('SELECT * FROM events ORDER BY id').fetchall()==prior_events
+assert db.execute('SELECT id,last_success FROM accounts ORDER BY id').fetchall()==prior_success
+# Preview publication is independent of confirmed rows and supports paginated reads.
+db.execute("INSERT INTO previews VALUES(1,'followers',200,182,9000)")
+for i in range(182):db.execute("INSERT INTO preview_edges VALUES(1,'followers',?,?,?,'')",(str(90000+i),'preview'+str(i),'Preview'))
+meta_body=source.split('public Preview preview(',1)[1].split('public void savePreview',1)[0]
+meta_sql=java_sql(re.search(r'rawQuery\(("(?:[^"\\]|\\.)*")',meta_body).group(1))
+assert db.execute(meta_sql,('1','123','followers')).fetchone()==(200,182,9000)
+assert db.execute(meta_sql,('1','other-owner','followers')).fetchall()==[]
+preview_body=source.split('public Cursor previewEdges(',1)[1].split('private LinkedHashMap',1)[0]
+preview_sql=java_sql(re.search(r'rawQuery\(("(?:[^"\\]|\\.)*")',preview_body).group(1))
+assert len(db.execute(preview_sql,('1','123','followers','%','%','0')).fetchall())==101
+assert len(db.execute(preview_sql,('1','123','followers','%','%','100')).fetchall())==82
+assert db.execute(preview_sql,('1','other-owner','followers','%','%','0')).fetchall()==[]
+assert db.execute('SELECT * FROM edges ORDER BY account,kind,person').fetchall()==prior_edges
+assert db.execute('SELECT * FROM events ORDER BY id').fetchall()==prior_events
+assert db.execute('SELECT id,last_success FROM accounts ORDER BY id').fetchall()==prior_success
+# Successful full commit deletes previews transactionally; failed commit restores them.
+db.commit()
+try:
+    with db:
+        db.execute('DELETE FROM previews WHERE account=1')
+        raise RuntimeError('rollback full commit')
+except RuntimeError:pass
+assert db.execute('SELECT COUNT(*) FROM preview_edges').fetchone()[0]==182
+with db:db.execute('DELETE FROM previews WHERE account=1')
+assert db.execute('SELECT COUNT(*) FROM preview_edges').fetchone()[0]==0
+assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
+print('PASS: 60 SQLite migration, preview isolation, filters and notification checks')

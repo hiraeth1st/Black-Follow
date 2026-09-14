@@ -16,6 +16,7 @@ import java.util.*;
 public class MainActivity extends Activity {
     private final int BG=Color.rgb(13,16,21), CARD=Color.rgb(24,29,37), GREEN=Color.rgb(184,243,107), MUTED=Color.rgb(159,173,191);
     private ScrollView scroll;private long renderedRevision;private int eventFilter=0;
+    private boolean usePreview=true;
     private boolean profilePage=false;private String uiOwner="";
     private long searchSelected=0;private String searchTab="followers",searchQuery="";private int searchPage=0,searchFilter=0;
     private LinearLayout content;private TextView status;private Store store;private AvatarLoader avatars;
@@ -34,7 +35,7 @@ public class MainActivity extends Activity {
     }
     public void onCreate(Bundle b) {
         super.onCreate(b);store=new Store(this);avatars=new AvatarLoader(this);
-        if(b!=null) {eventFilter=Math.max(0,Math.min(4,b.getInt("eventFilter",0)));selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
+        if(b!=null) {usePreview=b.getBoolean("usePreview",true);eventFilter=Math.max(0,Math.min(4,b.getInt("eventFilter",0)));selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
         if(b!=null){profilePage=b.getBoolean("profilePage");uiOwner=b.getString("uiOwner","");searchSelected=b.getLong("searchSelected");searchTab=b.getString("searchTab","followers");searchQuery=b.getString("searchQuery","");searchPage=b.getInt("searchPage");searchFilter=Math.max(0,Math.min(4,b.getInt("searchFilter")));}
         else uiOwner=Session.owner(this);
         resetChangedOwner();
@@ -43,7 +44,7 @@ public class MainActivity extends Activity {
     public void onResume(){super.onResume();resetChangedOwner();ChangeNotifications.initialize(this);if(store!=null) render();handler.post(ticker);}
     public void onPause(){handler.removeCallbacks(ticker);super.onPause();}
     public void onDestroy(){if(store!=null) store.close();if(avatars!=null)avatars.close();super.onDestroy();}
-    public void onSaveInstanceState(Bundle b){b.putBoolean("profilePage",profilePage);b.putString("uiOwner",uiOwner);b.putLong("searchSelected",searchSelected);b.putString("searchTab",searchTab);b.putString("searchQuery",searchQuery);b.putInt("searchPage",searchPage);b.putInt("searchFilter",searchFilter);b.putInt("eventFilter",eventFilter);b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
+    public void onSaveInstanceState(Bundle b){b.putBoolean("usePreview",usePreview);b.putBoolean("profilePage",profilePage);b.putString("uiOwner",uiOwner);b.putLong("searchSelected",searchSelected);b.putString("searchTab",searchTab);b.putString("searchQuery",searchQuery);b.putInt("searchPage",searchPage);b.putInt("searchFilter",searchFilter);b.putInt("eventFilter",eventFilter);b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);openNotification(intent);render();}
     private void openNotification(Intent intent){
         if(intent==null || !intent.hasExtra("notification_account"))return;
@@ -90,7 +91,7 @@ public class MainActivity extends Activity {
         if(!profilePage)return;profilePage=false;selected=searchSelected;tab=searchTab;query=searchQuery;page=searchPage;eventFilter=searchFilter;render();
     }
     private void showOwn(){
-        if(profilePage)return;saveSearchPage();profilePage=true;selected=0;tab="followers";query="";page=eventFilter=0;loadOwn();
+        if(profilePage)return;saveSearchPage();profilePage=true;selected=0;usePreview=true;tab="followers";query="";page=eventFilter=0;loadOwn();
     }
     private void loadOwn(){
         String owner=Session.owner(this);
@@ -144,7 +145,7 @@ public class MainActivity extends Activity {
             c.addView(text((a.followers<0?"—":a.followers)+" takipçi     "+(a.following<0?"—":a.following)+" takip",16,GREEN));
             c.addView(text("Profil sayıları: "+date(a.profileAt),12,MUTED));
             c.addView(text((a.enabled?"İzleme açık":"İzleme duraklatıldı")+" • Son kayıt: "+date(a.lastSuccess),12,MUTED));
-            c.addView(text(Session.displayStatus(this,a.status),12,MUTED));c.setOnClickListener(v->{selected=a.id;page=0;query="";tab="followers";render();});
+            c.addView(text(Session.displayStatus(this,a.status),12,MUTED));c.setOnClickListener(v->{selected=a.id;page=0;query="";usePreview=true;tab="followers";render();});
         }
         gap();label("Veriler bu telefonda saklanır. Saatler cihazın saat dilimindedir. Android pil tasarrufu otomatik kontrolleri geciktirebilir.",12,MUTED);
     }
@@ -170,8 +171,17 @@ public class MainActivity extends Activity {
         label("Yeni kayıtlardaki saat tespit zamanıdır. Aralık, önceki taramanın başlangıcı ile yeni taramanın bitişini gösterir; kesin takip saati değildir.",12,MUTED);gap();
         LinearLayout tabs=new LinearLayout(this);
         String[] kinds={"followers","following","events"},names={"Takipçiler","Takip edilen","Hareketler"};
-        for(int i=0;i<3;i++){String k=kinds[i];Button b=button(names[i],()->{tab=k;page=0;query="";render();});if(tab.equals(k)) b.setBackground(shape(CARD));tabs.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));}content.addView(tabs);
-        if(a.lastSuccess==0){label("Henüz tam liste alınmadı. İlk başarılı kontrolden sonra mevcut kişiler “Zaman bilinmiyor” olarak görünecek.",15,MUTED);return;}
+        for(int i=0;i<3;i++){String k=kinds[i];Button b=button(names[i],()->{tab=k;page=0;query="";usePreview=true;render();});if(tab.equals(k)) b.setBackground(shape(CARD));tabs.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));}content.addView(tabs);
+        Store.Preview preview=tab.equals("events")?null:store.preview(a.id,a.owner,tab);
+        boolean showingPreview=preview!=null&&(usePreview||a.lastSuccess==0);
+        if(preview!=null){
+            label("Son tarama: "+preview.received+"/"+preview.expected+" kişi • "+(preview.received<preview.expected?"Eksik liste":"Tarama önizlemesi")+"\nAlınma: "+date(preview.observed),15,GREEN);
+            label("Önizleme takip veya çıkış kaydı üretmez. Doğrulanmış geçmiş ayrı tutulur.",12,MUTED);
+            if(a.lastSuccess>0)action(showingPreview?"Son doğrulanmış listeyi göster":"Son tarama önizlemesini göster",()->{usePreview=!usePreview;page=0;render();});
+        }
+        if(a.lastSuccess==0&&!showingPreview){label(tab.equals("events")?"Henüz iki liste birlikte doğrulanmadı; takip/çıkış geçmişi başlamadı.":"Bu liste için henüz gösterilecek kişi alınmadı. Listeyi şimdi yenile düğmesini kullanabilirsin.",15,MUTED);return;}
+        if(showingPreview)label("GÖSTERİLEN: SON TARAMA ÖNİZLEMESİ",12,MUTED);
+        else if(!tab.equals("events"))label("GÖSTERİLEN: SON DOĞRULANMIŞ LİSTE • "+date(a.lastSuccess),12,MUTED);
         EditText search=new EditText(this);search.setTextColor(Color.WHITE);search.setHintTextColor(MUTED);search.setHint(tab.equals("events")?"Hareketlerde kullanıcı adı veya isim ara":"Listede isim ara");search.setSingleLine(true);search.setText(query);content.addView(search);
         action("Ara",()->{query=search.getText().toString().trim().replaceFirst("^@","");page=0;render();});
         if(tab.equals("events")) {
@@ -182,7 +192,7 @@ public class MainActivity extends Activity {
         }
         int count=0;boolean hasMore=false;
         String kind=(eventFilter==1||eventFilter==4)?"followers":eventFilter==2?"following":"",eventAction=eventFilter>=3?"removed":eventFilter==0?"":"added";
-        try(Cursor c=tab.equals("events")?store.events(a.id,a.owner,query,kind,eventAction,page*100):store.edges(a.id,a.owner,tab,query,page*100)){
+        try(Cursor c=tab.equals("events")?store.events(a.id,a.owner,query,kind,eventAction,page*100):showingPreview?store.previewEdges(a.id,a.owner,tab,query,page*100):store.edges(a.id,a.owner,tab,query,page*100)){
             while(c.moveToNext()) {
                 if(count==100){hasMore=true;break;}
                 count++;LinearLayout item=card();
@@ -198,7 +208,7 @@ public class MainActivity extends Activity {
                     LinearLayout.LayoutParams imageParams=new LinearLayout.LayoutParams(dp(48),dp(48));imageParams.rightMargin=dp(12);identity.addView(picture,imageParams);
                     LinearLayout personText=column();personText.addView(text("@"+username,17,Color.WHITE));if(!c.getString(1).isEmpty())personText.addView(text(c.getString(1),13,MUTED));identity.addView(personText,new LinearLayout.LayoutParams(0,-2,1));item.addView(identity);
                     avatars.load(picture,c.getString(4),a.owner);item.setOnClickListener(v->openProfile(username));item.setContentDescription("@"+username+" Instagram profilini aç");
-                    item.addView(text(c.getLong(2)==0?"Zaman bilinmiyor · ilk kayıtta mevcut":"Tespit: "+date(c.getLong(2))+"\nAralık: "+date(c.getLong(3))+" → "+date(c.getLong(2)),12,c.getLong(2)==0?MUTED:GREEN));
+                    item.addView(text(showingPreview?"Takip zamanı bilinmiyor • tarama önizlemesi":c.getLong(2)==0?"Zaman bilinmiyor · ilk kayıtta mevcut":"Tespit: "+date(c.getLong(2))+"\nAralık: "+date(c.getLong(3))+" → "+date(c.getLong(2)),12,c.getLong(2)==0?MUTED:GREEN));
                 }
             }
         }
@@ -211,20 +221,21 @@ public class MainActivity extends Activity {
     }
     private void check(long id,boolean profileOnly){
         if(Monitor.BUSY.get()){toast("Kontrol zaten sürüyor.");return;}
+        if(!profileOnly){usePreview=true;page=0;}
         Context app=getApplicationContext();toast("Kontrol başlatılıyor…");
         new Thread(()->{String result=profileOnly?Monitor.profile(app,id):Monitor.run(app,id,true);runOnUiThread(()->{if(isFinishing()||isDestroyed())return;render();new AlertDialog.Builder(this).setTitle("Kontrol sonucu").setMessage(result)
-            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.3.1\n"+result));toast("Kontrol bilgisi kopyalandı");})
+            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.3.2\n"+result));toast("Kontrol bilgisi kopyalandı");})
             .setPositiveButton("Tamam",null).show();});},"manual-check").start();
     }
     private void login(){if(Monitor.BUSY.get()){toast("Mevcut kontrolün bitmesini bekle.");return;}startActivity(new Intent(this,LoginActivity.class));}
     private void drawer(){
         Dialog dialog=new Dialog(this);LinearLayout panel=column();panel.setPadding(dp(22),dp(32),dp(22),dp(24));panel.setBackgroundColor(CARD);
-        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.3.1",13,MUTED));
+        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.3.2",13,MUTED));
         panel.addView(button("Hesap geçmişi",()->{dialog.dismiss();profilePage=false;selected=0;history=true;render();}));
         panel.addView(button("Instagram oturumu",()->{dialog.dismiss();login();}));
         panel.addView(button("Kontrol ayarları",()->{dialog.dismiss();settings();}));
         panel.addView(button(ChangeNotifications.enabled(this)?"Bildirim ayarları":"Bildirimleri aç",()->{dialog.dismiss();ChangeNotifications.request(this);}));
-        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.3.1\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
+        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.3.2\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
         if(selected>0)panel.addView(button("Bu hesabı dışa aktar (.txt)",()->{dialog.dismiss();exportReport();}));
         if(selected>0) panel.addView(button("Bu hesabın kayıtlarını sil",()->{dialog.dismiss();remove();}));
         panel.addView(button("Instagram'dan çıkış",()->{dialog.dismiss();logout();}));

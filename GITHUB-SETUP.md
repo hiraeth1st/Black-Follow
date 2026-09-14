@@ -1,6 +1,6 @@
 # GitHub otomatik APK derlemesi
 
-Hazırlanan kaynak sürümü: 0.3.1-test (versionCode 10).
+Hazırlanan kaynak sürümü: 0.3.2-test (versionCode 11).
 
 ## Depo
 

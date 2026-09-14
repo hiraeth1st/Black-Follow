@@ -44,6 +44,11 @@ public class HistoryTextTest {
         check(listText.contains("@person204")&&listText.contains("Toplam: 205 kişi"),"current list export has no UI page limit");
         StringWriter noList=new StringWriter();HistoryText.Report nr=new HistoryText.Report(noList,"empty",at("2026-03-30"),0,0,zone);nr.currentLists(0);nr.finish();
         check(noList.toString().contains("sıfır kişi anlamına gelmez"),"never scanned differs from empty list");
+        StringWriter previewText=new StringWriter();HistoryText.Report pr=new HistoryText.Report(previewText,"target",at("2026-03-30"),0,0,zone);
+        pr.previewHeading("followers",182,200,at("2026-03-30"));pr.previewPerson("preview_person","Preview");pr.finish();
+        check(previewText.toString().contains("182/200")&&previewText.toString().contains("EKSİK LİSTE"),"export marks partial totals explicitly");
+        check(previewText.toString().contains("Takip zamanı bilinmiyor • tarama önizlemesi")&&!previewText.toString().contains("@preview_person takip edildi"),"preview person never becomes a historical event");
+        check(previewText.toString().contains("https://www.instagram.com/preview_person/"),"preview export links to available person");
         check(ProfileLinks.profile("firat.test").equals("https://www.instagram.com/firat.test/"),"safe clickable profile URL");
         check(ProfileLinks.avatar("https://scontent.cdninstagram.com/path.jpg?x=1"),"Instagram CDN image");
         check(ProfileLinks.avatar("https://scontent.xx.fbcdn.net/photo.jpg"),"Meta CDN image");

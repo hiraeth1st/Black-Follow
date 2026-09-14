@@ -7,7 +7,7 @@ public class MonitorPolicyTest {
     static Context fresh(){
         Context c=new Context();Session.prefs(c).edit().putString("owner","123").putLong("verified_at",1).putBoolean("paused",false).apply();
         CookieManager.value="ds_user_id=123; sessionid=fixture-session";
-        InstagramClient.requests=0;InstagramClient.profileFailure=null;InstagramClient.snapshotFailure=null;
+        InstagramClient.partial=false;Store.previews=0;InstagramClient.requests=0;InstagramClient.profileFailure=null;InstagramClient.snapshotFailure=null;
         Store.profiles=0;Store.commits=0;ChangeNotifications.posts=0;Store.ACCOUNT.nextDue=Long.MAX_VALUE;
         return c;
     }
@@ -42,6 +42,9 @@ public class MonitorPolicyTest {
         c=fresh();Session.pause(c,"challenge");Monitor.profile(c,1);
         check(InstagramClient.requests==0,"challenge pause still prevents requests");
         check(!Monitor.BUSY.get(),"worker lock released after early rejection");
+        c=fresh();InstagramClient.partial=true;String partial=Monitor.run(c,1,true);
+        check(Store.previews==1&&Store.commits==0&&ChangeNotifications.posts==0,"partial preview saved without history or notification");
+        check(partial.contains("BF_LIST_PARTIAL")&&!Session.prefs(c).getBoolean("paused",false),"partial result reported without inventing auth pause");
         System.out.println("PASS: "+checks+" actual monitor flow regression checks");
     }
 }

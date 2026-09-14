@@ -15,6 +15,7 @@ public final class InstagramClient {
         public AccessError(String msg,boolean auth,boolean rate) {this(msg,auth,rate,-1);}
         public AccessError(String msg,boolean auth,boolean rate,long retryAfterMs) { super(msg);this.auth=auth;this.rate=rate;this.retryAfterMs=retryAfterMs; }
     }
+    public static class PartialLists extends IOException {public PartialLists(String message){super(message);}}
     public static class Profile {
         public String id,username,name;public int followers,following;public boolean restricted;
     }
@@ -23,6 +24,9 @@ public final class InstagramClient {
         public LinkedHashMap<String,Store.Edge> followers,following;
     }
     public interface Progress {void page(String kind,int page,int received,int expected);}
+    public interface ListObserver {void received(String kind,LinkedHashMap<String,Store.Edge> people,int expected) throws Exception;}
+    private ListObserver observer=(kind,people,expected)->{};
+    public void observeLists(ListObserver observer){this.observer=observer;}
     private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private long lastRequest=0;
     public InstagramClient(Context c,String owner,long deadline) {this(c,owner,deadline,(kind,page,received,expected)->{});}
@@ -145,7 +149,7 @@ public final class InstagramClient {
             try {
                 validation.add(ids,cursor,more);
                 progress.page(kind,page+1,validation.count(),expected);
-                if(!more) {validation.finish();return found;}
+                if(!more) {guard();observer.received(kind,found,expected);return found;}
             } catch(IllegalArgumentException e) {
                 throw new IOException(("followers".equals(kind)?"Takipçi listesi":"Takip edilenler listesi")+" • sayfa "+(page+1)+" • "+validation.count()+"/"+expected+" benzersiz kişi\n"+e.getMessage(),e);
             }
@@ -164,6 +168,8 @@ public final class InstagramClient {
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
         s.followers=people(s.profile.id,"followers",s.profile.followers);
         s.following=people(s.profile.id,"following",s.profile.following);
+        if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
+            throw new PartialLists("Son tarama önizlemesi kaydedildi: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Instagram sayfaları profil toplamındaki tüm kişileri döndürmedi. Alınan kişileri ilgili sekmede görebilirsin. Doğrulanmış geçmiş değişmedi; takip/çıkış bildirimi üretilmedi. [BF_LIST_PARTIAL]");
         Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");

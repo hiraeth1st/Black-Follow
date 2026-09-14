@@ -2,8 +2,10 @@ package com.blackapps.follow;
 import android.content.Context;
 import java.util.*;
 public class Store implements AutoCloseable {
-    public static int profiles,commits;public static final Account ACCOUNT=new Account();
+    public static int profiles,commits,previews;public static final Account ACCOUNT=new Account();
     public static class Account {public String owner="123",username="target",remote="456";public long id=1,lastSuccess=0,nextDue=Long.MAX_VALUE;public boolean enabled=true;public int failures;}
+    public static class Edge {}
+    public void savePreview(Account a,String kind,java.util.LinkedHashMap<String,Edge> people,int expected){previews++;}
     public Store(Context c) {}
     public List<Account> accounts(String owner){return Arrays.asList(ACCOUNT);}
     public void profileAttempt(Account a){}

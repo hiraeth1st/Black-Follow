@@ -1,4 +1,14 @@
-# Black Follow 0.3.1 doğrulaması
+# Black Follow 0.3.2 doğrulaması
+
+- 302 otomatik kontrol: önceki 279 kontrole ek 4 HTTP/snapshot, 14 SQLite migration/önizleme izolasyonu, 3 rapor metni ve 2 gerçek Monitor kontrolü.
+- Üretim HTTP istemcisi 9 sayfada 182/200 takipçi sonucunu gözlemciye teslim eder, ardından 794/794 takip edilen kişi taramasını bitirir. Tam snapshot döndürmez; iki önizleme ayrı kalır. Rate yanıtında önce alınmış önizleme korunur ve ek istek yapılmaz.
+- Gerçek SQLite üzerinde v3 -> v4 tablo eklemesi önceki edges/events/last_success kayıtlarını değiştirmedi. Önizleme sorgularının oturum izolasyonu, 101 satırlık sayfalama, tam kayıt temizliğinin rollback durumunda önizlemeyi geri getirmesi ve FK cascade davranışı test edildi.
+- Üretim Monitor kodu önizlemeyi kaydederken tam commit veya bildirim çağırmadı. TXT başlıkları eksik toplamı ve zamanı açıkça ayırdı; önizleme kişisi takip olayı gibi yazılmadı.
+- Android kaynak/Java/D8 derlemesi yerelde başarılı. GitHub Actions aynı testleri ve orijinal imzayı doğrular.
+- Eksik 18 kişinin neden dönmediği belirlenmedi; veri uydurulmadı. 200 sayımını 182'ye eşitleyen veya eksik kayıtları takipten çıkma sayan bir değişiklik yok. Canlı kullanıcı hesabı, Android arayüzü ve cihazdaki SQLiteOpenHelper migration burada uçtan uca çalıştırılmadı.
+
+## Önceki 0.3.1 doğrulaması
+
 
 - 279 otomatik kontrol: önceki 263 kontrole ek olarak 6 sayfalama bütünlüğü ve 10 gerçek HTTP istemcisi/snapshot regresyon kontrolü.
 - Üretim InstagramClient sınıfı sentetik HTTPS yanıtlarıyla 200 takipçi ve 794 takip edilen kişiyi sayfalar arası ve sayfa içi tekrarlarla birleştirir. Son kişi, dönen imlecin sonraki isteğe aktarılması, tek final profil kontrolü ve benzersiz ilerleme sayıları kontrol edilir.

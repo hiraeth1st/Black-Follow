@@ -45,6 +45,12 @@ public final class HistoryText {
             out.write("  "+ProfileLinks.profile(username)+"\n");
         }
         public void listCount(int count)throws IOException {out.write("Toplam: "+count+" kişi\n");}
+        public void previewHeading(String kind,int received,int expected,long time)throws IOException {
+            out.write("\nSON TARAMA ÖNİZLEMESİ — "+("followers".equals(kind)?"TAKİPÇİLER":"TAKİP EDİLENLER")+"\n"+received+"/"+expected+" kişi • "+(received<expected?"EKSİK LİSTE":"Doğrulanmış geçmişe aktarılmamış liste")+"\nAlınma: "+format(time,"dd.MM.yyyy HH:mm:ss",zone)+"\nBu liste takip/çıkış kanıtı değildir; doğrulanmış geçmişten ayrıdır.\n");
+        }
+        public void previewPerson(String username,String name)throws IOException {
+            out.write("@"+username+(name==null||name.isEmpty()?"":" • "+name.replace('\n',' ').replace('\r',' '))+"\n  Takip zamanı bilinmiyor • tarama önizlemesi\n  "+ProfileLinks.profile(username)+"\n");
+        }
         public void finish()throws IOException {if(observations==0)out.write("\nTarihçeli profil sayımı henüz yok.\n");if(events==0)out.write("\nHenüz tespit edilmiş takip değişikliği yok.\n");out.write("\nRapor sonu • "+events+" hareket\n");out.flush();}
     }
 }

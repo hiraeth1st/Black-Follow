@@ -53,9 +53,10 @@ public class TransportTest {
         responses.clear();requests=0;
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":\"1\",\"username\":\"a\"},{\"pk\":\"2\",\"username\":\"b\"}],\"next_max_id\":\"p2\"}"));
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":\"2\",\"username\":\"b\"}]}"));
+        responses.add(new Fixture(200,"{\"users\":[]}"));
         try {client().snapshot(account(),profile(3,0),0);throw new AssertionError("partial snapshot accepted");}
-        catch(IOException e){check(e.getMessage().contains("2/3")&&e.getMessage().contains("sayfa 2"),"duplicates never disguise missing unique records");}
-        check(requests==2,"incomplete followers do not proceed to following or count check");
+        catch(IOException e){check(e.getMessage().contains("2/3")&&e.getMessage().contains("BF_LIST_PARTIAL"),"duplicates never disguise missing unique records");}
+        check(requests==3,"incomplete followers still read following without a full-history commit");
         responses.clear();requests=0;
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":null,\"id\":\"1\",\"username\":\"a\"}]}"));
         responses.add(new Fixture(200,"{\"users\":[]}"));responses.add(profileFixture(1,0));
@@ -67,6 +68,24 @@ public class TransportTest {
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":\"1\",\"username\":\"a\"}],\"next_max_id\":\"p2\"}"));responses.add(new Fixture(429,"{}"));
         try{client().snapshot(account(),profile(2,0),0);throw new AssertionError("rate ignored");}
         catch(InstagramClient.AccessError e){check(e.rate&&requests==2,"rate denial during pagination stops without retries");}
+        responses.clear();requests=0;
+        // Nine follower pages total only 182 identities although the profile says 200.
+        for(int page=0;page<9;page++){
+            org.json.JSONArray users=new org.json.JSONArray();int first=page*21+1,last=Math.min(182,first+20);
+            for(int id=first;id<=last;id++)users.put(new org.json.JSONObject().put("pk",""+id).put("username","person"+id));
+            responses.add(new Fixture(200,new org.json.JSONObject().put("users",users).put("next_max_id",page==8?"":"p"+(page+1)).toString()));
+        }
+        overlappingPages(10000,794);int pageRequests=responses.size();List<String> previews=new ArrayList<>();
+        InstagramClient partialClient=new InstagramClient(new android.content.Context(),"123",System.currentTimeMillis()+90000);
+        partialClient.observeLists((kind,people,expected)->previews.add(kind+":"+people.size()+"/"+expected));
+        try{partialClient.snapshot(account(),profile(200,794),0);throw new AssertionError("partial scan returned complete snapshot");}
+        catch(IOException e){check(e.getMessage().contains("182/200")&&e.getMessage().contains("794/794")&&e.getMessage().contains("BF_LIST_PARTIAL"),"both partial and available totals reported");}
+        check(previews.equals(Arrays.asList("followers:182/200","following:794/794")),"182 followers and 794 following delivered as separate previews");
+        check(requests==pageRequests&&responses.isEmpty(),"short final page continues to next list with no restart loop");
+        responses.clear();requests=0;previews.clear();
+        responses.add(new Fixture(200,"{\"users\":[{\"pk\":\"1\",\"username\":\"a\"}]}"));responses.add(new Fixture(429,"{}"));
+        try{partialClient.snapshot(account(),profile(2,1),0);throw new AssertionError("rate ignored after preview");}
+        catch(InstagramClient.AccessError e){check(e.rate&&requests==2&&previews.equals(Arrays.asList("followers:1/2")),"completed follower preview survives subsequent rate denial with no further request");}
         queued=false;
     }
     public static void main(String[] args)throws Exception{
