@@ -1,4 +1,8 @@
-# Black Follow 0.3.3 doğrulaması
+# Black Follow 0.3.4 doğrulaması
+
+319 kontrol hedeflenir: önceki 316 kontrol ve REST istek bağlamı, belirtecin sayfalar boyunca sabitliği, iki listenin bağımsız belirteçleri için üç kontrol. GitHub Actions sonucu derleme kapısıdır. Testler sentetik yanıtlar kullanır; web sunucusunun yeni parametreleri uyguladığını veya canlı hesaptaki tüm eksiklerin giderildiğini kanıtlamaz. Giriş, erişim kısıtlamaları ve tam liste olmadan geçmişi değiştirmeme kuralları korunur.
+
+## Önceki 0.3.3 doğrulaması
 
 - 316 otomatik kontrol başarılı; 42 HTTP taşıma/snapshot kontrolü dahil. Yerel Android kaynak/Java/D8 derlemesi başarılı. GitHub Actions testleri, APK imzasını ve derlemeyi yeniden doğrular.
 

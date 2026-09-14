@@ -59,6 +59,15 @@ public class TransportTest {
         check(snap.followers.containsKey("200")&&snap.following.containsKey("10793"),"last pages remain in full snapshot");
         check(requests==expectedRequests&&responses.isEmpty(),"each page read once with one final count check");
         check(paths.stream().anyMatch(x->x.contains("max_id=cursor-1")),"pagination forwards returned cursor");
+        Set<String> followerTokens=new HashSet<>(),followingTokens=new HashSet<>();boolean contextPresent=true;
+        for(String path:paths)if(path.startsWith("/api/v1/friendships/")) {
+            contextPresent &= path.contains("search_surface=follow_list_page")&&path.contains("query=&")&&path.contains("enable_groups=true")&&path.contains("rank_token=");
+            String token=path.split("rank_token=",2)[1].split("&",2)[0];
+            (path.contains("/followers/")?followerTokens:followingTokens).add(token);
+        }
+        check(contextPresent,"each REST page includes the complete list request context");
+        check(followerTokens.size()==1&&followingTokens.size()==1,"ranking token remains stable from first to last page of each list");
+        check(!followerTokens.equals(followingTokens)&&followerTokens.iterator().next().matches("123_[a-f0-9-]{36}"),"independent traversals use separate non-secret ranking tokens");
         check(progress.contains("followers:200/200")&&progress.contains("following:794/794"),"progress reports unique totals for both lists");
         responses.clear();requests=0;
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":\"1\",\"username\":\"a\"},{\"pk\":\"2\",\"username\":\"b\"}],\"next_max_id\":\"p2\"}"));

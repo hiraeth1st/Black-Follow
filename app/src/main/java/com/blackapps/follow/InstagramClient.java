@@ -141,8 +141,10 @@ public final class InstagramClient {
     private LinkedHashMap<String,Store.Edge> people(String id,String kind,int expected) throws Exception {
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);
         LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";
+        // Keep one ranking context for the entire REST traversal, including its first page.
+        String rankToken=owner+"_"+UUID.randomUUID().toString();
         for(int page=0;page<200;page++) {
-            JSONObject j=get("/api/v1/friendships/"+id+"/"+kind+"/?count=100"+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8")));
+            JSONObject j=get("/api/v1/friendships/"+id+"/"+kind+"/?count=100&search_surface=follow_list_page&query=&enable_groups=true&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8")));
             JSONArray users=j.getJSONArray("users");ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {
                 JSONObject u=users.getJSONObject(i);String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.getString("username");
