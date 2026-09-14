@@ -35,3 +35,4 @@ jobs:
           git add -A
           git commit -m "Add multi-pass REST and omission-aware prefix recovery"
           git push origin HEAD:adaptive-prefix-recovery
+# trigger: 0.4.3
