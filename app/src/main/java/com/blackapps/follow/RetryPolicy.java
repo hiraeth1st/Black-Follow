@@ -21,9 +21,8 @@ public final class RetryPolicy {
         return -1;
     }
     public static long delay(long serverDelay,int failures) {
-        // A conservative local policy when the server did not provide a duration.
-        long local=Math.min(86400000L,15*60000L*(1L<<Math.min(Math.max(0,failures),7)));
-        return serverDelay>=0?Math.max(60000L,serverDelay):local;
+        // Only a duration supplied by Instagram creates a deadline.
+        return Math.max(0,serverDelay);
     }
     public static long until(long existing,long now,long delay) {
         return Math.max(existing,delay>Long.MAX_VALUE-now?Long.MAX_VALUE:now+delay);

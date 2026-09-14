@@ -12,11 +12,11 @@ public class RetryPolicyTest {
         check(RetryPolicy.serverDelay("broken",now)==-1,"invalid header does not become a deadline");
         check(RetryPolicy.serverDelay("-10",now)==-1,"negative duration rejected");
         check(RetryPolicy.serverDelay("9999999999999999999999999",now)>86400000,"overflow cannot erase a server wait");
-        check(RetryPolicy.delay(-1,0)==900000,"unknown duration starts at local 15 minutes");
-        check(RetryPolicy.delay(-1,1)==1800000,"repeated limit doubles wait");
-        check(RetryPolicy.delay(-1,20)==86400000,"local maximum one day");
+        check(RetryPolicy.delay(-1,0)==0,"unknown duration has no local timer");
+        check(RetryPolicy.delay(-1,1)==0,"repeated limit does not create a timer");
+        check(RetryPolicy.delay(-1,20)==0,"no exponential local maximum");
         check(RetryPolicy.delay(172800000,0)==172800000,"server wait is not truncated at local maximum");
-        check(RetryPolicy.delay(0,0)==60000,"minimum wait avoids a retry loop");
+        check(RetryPolicy.delay(0,0)==0,"zero server duration is not extended");
         check(RetryPolicy.until(now+86400000,now,900000)==now+86400000,"existing legacy deadline is not silently removed");
         check(RetryPolicy.until(now-1,now,900000)==now+900000,"expired deadline permits new wait");
         check(RetryPolicy.until(0,now,Long.MAX_VALUE)==Long.MAX_VALUE,"deadline arithmetic does not overflow");

@@ -1,10 +1,11 @@
-# Black Follow 0.2.2 doğrulaması
+# Black Follow 0.2.3 doğrulaması
 
-- 157 yerel kontrol başarılı: 19 veri bütünlüğü, 15 bekleme, 19 tarihçe/bağlantı, 15 bildirim/tanı, 21 SQLite, 32 oturum, 22 profil sorgusu ve 14 HTTP istemcisi kontrolü.
-- Yeni profil testleri tam kullanıcı adı eşleşmesi, benzer hesabı reddetme, kayıtlı kimlikle aramasız sorgu, kullanıcı adı değişimi, POST hedefi/verileri, kimlik uyuşmazlığı, eksik kullanıcı, GraphQL hatası ve engelde ek istek yapılmamasını doğrular.
-- HTTP istemcisi sentetik HTTPS yanıtlarıyla çalıştırıldı; gerçek profil POST yolu, 429/Retry-After, diğer erişim engelleri, null alanlar ve çerez başlıkları kontrol edildi.
-- Android kaynakları, native Java ve D8 derlemesi yerelde başarılı. Cihazda canlı listeler, bildirim teslimi ve arka plan davranışı bu sürüm için denenmedi.
-- Kullanıcının izin verdiği herkese açık profil bu ortamdan açılmaya çalışıldı. Yanıt Instagram giriş sayfasına yönlendi; takipçi/takip sayısı veya kişi listesi alınamadı. Bu sonuç telefon oturumundaki yeni GraphQL akışının başarılı/başarısız olduğunu göstermez.
-- Önceki 0.2.1 cihaz görüntüsünde profil web isteği HTTP 429 ile engelleniyordu. 0.2.2 bu istek akışını değiştirir; canlı erişim sorununun çözüldüğü iddia edilmez.
-- Sürüm 0.2.2-test, versionCode 6, aynı veritabanı şeması 3. Güncelleme mevcut geçmişi ve bekleme süresini korur.
-- GitHub Actions her çalışmanın imzalı APK'sını ve ona ait SHA256SUMS.txt dosyasını birlikte üretir. Yerelde üretilen eski APK özeti yeni CI çıktısının özeti olarak kullanılmaz.
+- 221 otomatik kontrol: 19 veri bütünlüğü, 15 Retry-After, 19 tarihçe/bağlantı, 15 bildirim/tanı, 21 SQLite, 25 gerçek Session sınıfıyla kayıtlı bekleme/oturum, 32 eski oturum protokolü, 22 profil sorgusu, 24 WebView sonuç/kimlik doğrulaması, 15 gerçek Monitor sınıfıyla kontrol akışı, 14 HTTP istemcisi kontrolü.
+- Eski iki saatlik yerel beklemeden elle profil yenilemeye geçiş; gerçek sunucu süresinin korunması; süre verilmeden tekrar gelen 429'un sayaç üretmemesi; arka planda tekrar istek yapılmaması; başarılı manuel kontrolle devam; hesabın değişmesi; kısmi liste hatasında geçmişin kaydedilmemesi test edildi. Android SharedPreferences/CookieManager ve ağ/Store sınırları bu testlerde sentetik; Session ve Monitor üretim kodudur.
+- Android kaynakları, native Java ve D8 derlemesi yerelde başarılı. Native Activity/WebView çalıştırılmadı; burada Android cihazı/emülatörü yok.
+- APK'nın `res/raw/session_probe.js` dosyasının aynısı açık ve kullanıcı tarafından izin verilmiş canlı Instagram test oturumunda, başka bir profil sayfasındayken çalıştırıldı. Ziyaret edilen profil yerine oturum sahibinin gezinme düğmesini doğru tanıdı. Bu test masaüstü Chrome'dadır; mobil WebView DOM yerleşiminin aynı olduğu doğrulanmadı.
+- Önceki canlı tarayıcı kontrolünde izin verilen hedefte 26 takipçi ve 27 takip edilen hesap, pencereler kaydırılarak tüm kullanıcı adlarıyla görüntülenmişti. Bu veriler APK'ya veya test fixtures içine gömülmedi.
+- Tarayıcıdaki doğrudan API isteği ortamın `ERR_BLOCKED_BY_CLIENT` hatasıyla açılamadı. Bu, Instagram HTTP 429 sonucu değildir. Tarayıcı çerezleri dışarı çıkarılmadı; canlı Android/API liste erişimi çözülmüş sayılmıyor.
+- Bildirim teslimi ve uzun süreli arka plan taraması cihazda denenmedi. İlk liste, eksik liste, hesap izolasyonu ve bildirim seçimi mantığı otomatik testlerle denetlenir.
+- Sürüm 0.2.3-test, versionCode 7, veritabanı şeması 3. Güncelleme kullanıcı geçmişini ve gerçek sunucu sürelerini korur; eski yerel beklemeyi kaldırır.
+- GitHub Actions aynı testleri çalıştırır, orijinal sertifikayla imzalı APK ve ona ait SHA256SUMS.txt üretir. CI sonucu ilgili Actions çalışmasından doğrulanmalıdır.
