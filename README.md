@@ -1,6 +1,19 @@
-# Black Follow — Android 0.3.5
+# Black Follow — Android 0.4.0
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+
+## 0.4.0: görünür WebView ile adım adım tarama
+
+Hesap ekranındaki **Web üzerinden kaydırarak tara** düğmesi giriş yapılmış Instagram WebView'ini açar. Profilin takipçi bağlantısına basar, yüklenen listenin kaydırılabilir bölümünü bulur ve her seferinde görünür alanın yarısı kadar yumuşak kaydırır. Liste isteği veya yükleme göstergesi devam ederken ilerlemez; veri ve kaydırma sonrasında en az 1,5 saniye bekler. Sonra takip edilenler için aynı işlemi yapar.
+
+- Görünür ekran açık tutulmalıdır. Duraklat / Devam et ve İptal düğmeleri vardır. Uygulama arka plana alınırsa kaydırma duraklar; bu yöntem arka planda otomatik çalışmaz. Mevcut zamanlanmış yöntem değişmedi.
+- Sayfanın kendi yaptığı hedef hesabın `followers` / `following` REST istekleri fetch/XHR gözlemcisiyle okunur. Gözlemci kendi API isteğini göndermez, cookie dışarı aktarmaz veya JavaScript-native arayüzü açmaz. Arama sorguları ve başka hesap/tür yanıtları tam listeye karıştırılmaz.
+- Kayıtlar sayısal hesap kimliğiyle tekilleştirilir; ilk sayfanın yakalanmış olması ve imleç zincirinin doğru sırada ilerlemesi gerekir. Tam sayfa yenileme, kaybolan gözlemci, geçersiz kimlik veya oturum değişiminde işlem durur.
+- Yalnızca sayfa sonuna gelmek tamamlanma sayılmaz. Terminal yanıt, iki türde doğru benzersiz toplam ve son profil kontrolü gerekir. Bunlar geçmeden takip/çıkış olayı ve bildirim üretilmez. Alınan geçerli kayıtlar ayrı önizleme olarak saklanabilir.
+- 30 saniye ilerlememe ve tür başına 20 dakika sınırı vardır. Duraklatma/Devam et hareketsizlik sayacını yeniler; toplam süre sınırı korunur. Sunucunun rate/giriş/doğrulama yanıtları taramayı durdurur.
+- Bu gözlemci bilinen REST liste biçimini destekler. Instagram farklı bir veri yolu, tam sayfa geçişi veya önceden önbelleğe alınmış ilk liste kullanırsa açık hata vererek durabilir. Canlı Instagram/Android cihazında tam liste elde edildiği henüz doğrulanmadı. Yarım ekran kaydırma sunucunun hiç döndürmediği kişileri garanti etmez.
+
+Sürüm **0.4.0-test**, `versionCode=15`, şema **4**. Aynı imzayla silmeden güncellenir. JavaScript için Node tabanlı DOM/ağ örnekleri ve Java için gerçek sayfa doğrulayıcısı testleri eklendi. Testler canlı Instagram yanıtı kullanmaz.
 
 ## 0.3.5: açık listeyi koruma ve gerçek tarama tanısı
 
@@ -101,7 +114,7 @@ Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimli�
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.3.5-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.4.0-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -149,7 +162,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.3.5-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.4.0-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+node tests/scroll_scan_test.cjs
 mkdir -p out/tests
 java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/RelationLogic.java tests/RelationLogicTest.java
 java -cp out/tests RelationLogicTest
@@ -15,6 +16,9 @@ mkdir -p out/session-tests
 java com.sun.tools.javac.Main -encoding UTF-8 -d out/session-tests tests/session/android/content/*.java tests/session/android/webkit/*.java tests/session/com/blackapps/follow/*.java app/src/main/java/com/blackapps/follow/Session.java app/src/main/java/com/blackapps/follow/RetryPolicy.java tests/SessionPolicyTest.java
 java -cp out/session-tests SessionPolicyTest
 if [[ -n "${BF_JSON_JAR:-}" ]]; then
+  mkdir -p out/webscan-tests
+  java com.sun.tools.javac.Main -encoding UTF-8 -cp "$BF_JSON_JAR" -d out/webscan-tests tests/transport/com/blackapps/follow/Store.java app/src/main/java/com/blackapps/follow/RelationLogic.java app/src/main/java/com/blackapps/follow/ProfileLinks.java app/src/main/java/com/blackapps/follow/WebScanData.java tests/WebScanDataTest.java
+  java -cp "$BF_JSON_JAR:out/webscan-tests" WebScanDataTest
   java com.sun.tools.javac.Main -encoding UTF-8 -cp "$BF_JSON_JAR" -d out/tests app/src/main/java/com/blackapps/follow/ProfileLookup.java app/src/main/java/com/blackapps/follow/ViewerVerifier.java app/src/main/java/com/blackapps/follow/ResponsePolicy.java tests/ViewerVerifierTest.java tests/ProfileLookupTest.java
   java -cp "$BF_JSON_JAR:out/tests" ViewerVerifierTest
   java -cp "$BF_JSON_JAR:out/tests" ProfileLookupTest

@@ -1,4 +1,12 @@
-# Black Follow 0.3.5 doğrulaması
+# Black Follow 0.4.0 doğrulaması
+
+- Yeni WebView scripti için 25 örnek tabanlı kontrol: doğru hedef bağlantısını tek açma, doğrudan API isteği yapmama, ilk yanıtı bekleme, yarım ekran/smooth kaydırma, yükleme göstergesi ve devam eden fetch sırasında bekleme, duraklama, terminal yanıt sonrası görsel sona ulaşma, hedef/tür/arama ayrımı, 429 Retry-After, challenge, güvenli tamsayı kimliği, bozuk yanıt, XHR ve sınırlı kuyruk.
+- Gerçek WebScanData sınıfında 13 bütünlük kontrolü: sıra/ilk sayfa/terminal kontrolü, çakışan sayfaların ID ile tekilleştirilmesi, eksik terminal listenin tam sayılmaması, fazla/bozuk kimlik, boş liste ve devam imleci.
+- Önceki 321 kontrol de CI kapsamında çalışır; toplam hedef 359 kontrol. Android kaynak/Java/D8 derlemesi yerelde doğrulanır. CI orijinal sertifikayla imzalı APK üretir.
+- Bu ortamda Android cihaz/emülatör testi yapılmadı. DOM testleri kontrollü örnek kullanır; canlı Instagram DOM'u, isteği yakalama ve 200/794 tam sonuç henüz doğrulanmadı. Android Activity yaşam döngüsü, görünüm ve bildirim teslimi cihazda doğrulama gerektirir.
+- JavaScript köprüsü evaluateJavascript sonucu üzerinden sınırlı alanları okur; cookie, yanıt gövdesi veya gerçek imleç loglanmaz. Ek dışa açık Activity veya JavascriptInterface yoktur. İptal/oturum değişimi işlemleri denetlenir; arka plan işiyle ortak kilit çalışan iş bitmeden bırakılmaz.
+
+## Önceki 0.3.5 doğrulaması
 
 321 kontrol CI kapısı: önceki 319 kontrol ve iki gerçek HTTP istemcisi tanı kontrolü. REST 3 satır / 1 tekrar / 2 benzersiz kişi sonucu ile GraphQL 2 satır / 0 tekrar / 2 kişi sonucu ayrı doğrulanır. İmleç içeriği tanıya girmez; yalnızca varlığı kaydedilir. Açık listede otomatik yeniden çizim durduruldu; elle kontrol sonunda kaydırma konumu korunur. Android arayüzü cihaz üzerinde test edilmedi. Eksik canlı liste sorunu çözülmüş olarak sunulmaz.
 
