@@ -6,7 +6,10 @@ import java.nio.charset.StandardCharsets;
 /** Canonical request shapes for Instagram relationship lists and relationship-scoped searches. */
 public final class RelationshipRequest {
     public static final int PAGE_SIZE=200;
+    public static final int WEB_SEARCH_SIZE=100;
     public static final int MAX_PAGES=1000;
+    public static final int MAX_STREAMS=10;
+    public static final int MAX_ZERO_STREAMS=2;
 
     private RelationshipRequest() {}
 
@@ -18,7 +21,14 @@ public final class RelationshipRequest {
         return URLEncoder.encode(value==null?"":value,StandardCharsets.UTF_8.name());
     }
 
-    /** Cursor pagination. The maintained client implementation caps each page at 200. */
+    public static String rankToken(String owner,String uuid) {
+        if(owner==null||!owner.matches("[0-9]+"))throw new IllegalArgumentException("Geçersiz oturum kimliği.");
+        if(uuid==null||!uuid.matches("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"))
+            throw new IllegalArgumentException("Geçersiz sıralama UUID'si.");
+        return owner+"_"+uuid;
+    }
+
+    /** Cursor pagination. Current private clients cap each page at 200. */
     public static String page(String id,String kind,String rankToken,String cursor,String order) throws Exception {
         validate(id,kind);
         if(rankToken==null || rankToken.isEmpty())throw new IllegalArgumentException("Liste sıralama kimliği eksik.");
@@ -31,14 +41,24 @@ public final class RelationshipRequest {
         return path.toString();
     }
 
-    /** Relationship search is a separate, non-cursor request. Do not attach count, rank_token or max_id. */
-    public static String search(String id,String kind,String query) throws Exception {
+    private static String searchBase(String id,String kind,String query) throws Exception {
         validate(id,kind);
         if(query==null || query.isEmpty())throw new IllegalArgumentException("Arama sorgusu boş olamaz.");
         StringBuilder path=new StringBuilder("/api/v1/friendships/").append(id).append('/').append(kind).append("/?");
         if("following".equals(kind))path.append("includes_hashtags=false&");
-        path.append("search_surface=follow_list_page&query=").append(enc(query)).append("&enable_groups=true");
-        return path.toString();
+        return path.append("search_surface=follow_list_page&query=").append(enc(query)).append("&enable_groups=true").toString();
+    }
+
+    /** Browser-compatible shape used on the www.instagram.com relationship surface. */
+    public static String searchWeb(String id,String kind,String query) throws Exception {
+        String path=searchBase(id,kind,query);
+        int separator=path.indexOf('?');
+        return path.substring(0,separator+1)+"count="+WEB_SEARCH_SIZE+"&"+path.substring(separator+1);
+    }
+
+    /** Minimal private-client-compatible shape, used when the browser shape is rejected. */
+    public static String searchMinimal(String id,String kind,String query) throws Exception {
+        return searchBase(id,kind,query);
     }
 
     public static boolean optionalSearchFailure(String code) {
