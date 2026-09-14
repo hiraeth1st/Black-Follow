@@ -279,7 +279,7 @@ public final class InstagramClient {
         for(int i=0;i<limit&&found.size()<expected;i++) {
             guard();Store.Edge candidate=candidates.get(i);boolean before=found.containsKey(candidate.id);
             PrefixResult part=searchPrefix(id,kind,candidate.username,found);result.requests+=part.requests;
-            if(part.unsupported){result.unsupported++;traceSearchUnsupported(kind,"hedefli",part.failureCode,found.size(),expected);continue;}
+            if(part.unsupported){result.unsupported++;traceSearchUnsupported(kind,"hedefli",part.failureCode,found.size(),expected);break;}
             if(!before&&found.containsKey(candidate.id))result.recovered++;
             if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya hedefli arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
             traceTarget(kind,result.requests,limit,result.recovered,found.size(),expected);
