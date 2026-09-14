@@ -9,7 +9,7 @@ public final class ProfileLookup {
     public interface Request extends ViewerVerifier.Request {JSONObject post(String path,String form)throws Exception;}
     public static JSONObject resolve(String username,ViewerVerifier.Request request)throws Exception {
         if(!username.matches("[A-Za-z0-9._]{1,30}"))throw new ViewerVerifier.Failure("BF_PROFILE_NAME","Geçerli kullanıcı adı gerekli.");
-        JSONObject root=request.get("/web/search/topsearch/?context=blended&query="+URLEncoder.encode(username,"UTF-8")+"&include_reel=false&__a=1");
+        JSONObject root=request.get("/web/search/topsearch/?context=blended&query="+URLEncoder.encode(username,"UTF-8")+"&include_reel=false&count=1000&__a=1");
         JSONArray users=root.optJSONArray("users");
         if(users==null)throw new ViewerVerifier.Failure("BF_SEARCH_SCHEMA","Instagram arama yanıtı beklenen biçimde değil.");
         JSONObject match=null;

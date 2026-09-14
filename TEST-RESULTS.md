@@ -1,4 +1,4 @@
-# Black Follow 0.4.3 doğrulaması
+# Black Follow 0.4.4 doğrulaması
 
 ## Değişiklik kapsamı
 
@@ -21,15 +21,21 @@
 
 Otomatik testler Instagram'ın canlı yanıtını garanti etmez. Özellikle arama sonuç sınırı, rate-limit ve hesap bazlı liste kısıtlamaları cihazda gerçek oturumla doğrulanmalıdır. Tam toplam elde edilemezse uygulamanın beklenen davranışı önizlemeyi saklamak ve doğrulanmış geçmişi değiştirmemektir.
 
-## 0.4.3 ek kontrolleri
+## 0.4.4 ek kontrolleri
 
 - Önceki doğrulanmış listedeki eksik kullanıcılar için sınırlı hedefli arama bütçesi.
 - Yoğun alt öneklerin önceliklendirilmesi ve sıfır eşleşmeli görünen-ad gürültüsünün bölünmemesi.
 - Dört karakterlik üst derinlik, toplam 220 istek bütçesi ve elle taramada 12 dakikalık zaman sınırı.
 - Tam sonucun dışında geçmiş ve bildirim üretmeme kuralı değişmedi.
 
-## 0.4.3 ek kontrolleri
+## 0.4.4 ek kontrolleri
 
 - Bilinen önek nüfusundan daha az arama sonucu gelmesi alt-dal bölme sebebidir.
 - Takip edilenler URL'sinde `includes_hashtags=false`; iki bağımsız kök turu ve ek REST geçişleri kaynak doğrulamasına dahildir.
 - Önceki önizleme doğrudan geçmişe eklenmez; yalnızca aynı sayısal kimlik veya kullanıcı adı arama sonucunda yeniden görünürse kurtarılır.
+
+## 0.4.4 ek kontrolleri
+
+- Aramalı ilişki istekleri `count=1000`, sorgusuz normal liste istekleri `count=200` kullanır.
+- Altı Türkçe harf kök taramasına dahildir; `I/ı` ve `İ/i` Türkçe yerel dönüşümü doğrulanır.
+- Türkçe görünen-ad sonuçları ilişki endpointinden geldikten sonra sayısal kimlikle tekilleştirilir ve alt kullanıcı adı dallarına ayrılmaz.

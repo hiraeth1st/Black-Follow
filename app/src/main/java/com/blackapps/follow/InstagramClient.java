@@ -159,7 +159,8 @@ public final class InstagramClient {
         return p;
     }
     private String listPath(String id,String kind,String query,String rankToken,String cursor,String order) throws Exception {
-        return "/api/v1/friendships/"+id+"/"+kind+"/?count=200&search_surface=follow_list_page&query="+URLEncoder.encode(query,"UTF-8")+"&enable_groups=true"+
+        int count=query.isEmpty()?200:PrefixSearchLogic.SEARCH_COUNT;
+        return "/api/v1/friendships/"+id+"/"+kind+"/?count="+count+"&search_surface=follow_list_page&query="+URLEncoder.encode(query,"UTF-8")+"&enable_groups=true"+
             ("following".equals(kind)?"&includes_hashtags=false":"")+"&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+
             (order.isEmpty()?"":"&order="+URLEncoder.encode(order,"UTF-8"))+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8"));
     }
@@ -249,7 +250,7 @@ public final class InstagramClient {
             JSONArray users=j.getJSONArray("users");result.rows+=users.length();
             for(int i=0;i<users.length();i++) {
                 Store.Edge person=edge(users.getJSONObject(i));
-                if(PrefixSearchLogic.matches(person.username,prefix)){matched.add(person.id);found.put(person.id,person);}
+                if(PrefixSearchLogic.matchesSearchResult(person.username,person.name,prefix)){matched.add(person.id);found.put(person.id,person);}
             }
             if(found.size()>1000000)throw new IOException("Liste güvenli işleme sınırını aştı; geçmiş korunuyor.");
             String next=j.isNull("next_max_id")?"":j.optString("next_max_id","");

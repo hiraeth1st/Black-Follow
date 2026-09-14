@@ -1,6 +1,6 @@
 # GitHub otomatik APK derlemesi
 
-Hazırlanan kaynak sürümü: 0.4.3-test (versionCode 18).
+Hazırlanan kaynak sürümü: 0.4.4-test (versionCode 19).
 
 ## Depo
 
