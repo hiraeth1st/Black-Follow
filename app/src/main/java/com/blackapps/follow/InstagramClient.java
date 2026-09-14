@@ -50,7 +50,7 @@ public final class InstagramClient {
     }
     private void saveListTrace(){Session.prefs(context).edit().putString("last_list_detail",String.join("\n",listTrace.values())).apply();}
     private final Progress progress;
-    private final Context context;private final String owner;private final long deadline;private final int requestDelayMs;private long lastRequest=0;
+    private final Context context;private final String owner;private final long deadline;private final int requestDelayMs;private long lastRequest=0;private int followersSearchMode,followingSearchMode;
     public InstagramClient(Context c,String owner,long deadline) {this(c,owner,deadline,(kind,page,received,expected)->{},1500);}
     public InstagramClient(Context c,String owner,long deadline,Progress progress) {this(c,owner,deadline,progress,1500);}
     /** Visible for deterministic transport tests; production callers use the default delay. */
@@ -69,10 +69,12 @@ public final class InstagramClient {
         String cookies=Session.cookies();
         cn.setRequestProperty("Cookie",cookies);
         cn.setRequestProperty("User-Agent",Session.prefs(context).getString("user_agent","Mozilla/5.0"));
-        cn.setRequestProperty("Accept","application/json");cn.setRequestProperty("Referer",Session.ORIGIN+"/");
+        cn.setRequestProperty("Accept","*/*");cn.setRequestProperty("Referer",Session.ORIGIN+"/");
         cn.setRequestProperty("Origin",Session.ORIGIN);cn.setRequestProperty("X-Requested-With","XMLHttpRequest");
+        cn.setRequestProperty("Sec-Fetch-Site","same-origin");cn.setRequestProperty("Sec-Fetch-Mode","cors");cn.setRequestProperty("Sec-Fetch-Dest","empty");
         cn.setUseCaches(false);
-        cn.setRequestProperty("X-IG-App-ID","936619743392459");
+        cn.setRequestProperty("X-IG-App-ID","936619743392459");cn.setRequestProperty("X-ASBD-ID","129477");
+        String claim=Session.prefs(context).getString("www_claim","");if(!claim.isEmpty())cn.setRequestProperty("X-IG-WWW-Claim",claim);
         cn.setRequestProperty("X-CSRFToken",Session.cookieValue(cookies,"csrftoken"));
         int code=-1;String gate="";
         try {
@@ -82,6 +84,8 @@ public final class InstagramClient {
                 try(OutputStream out=cn.getOutputStream()){out.write(body);}
             }
             code=cn.getResponseCode();
+            String newClaim=cn.getHeaderField("x-ig-set-www-claim");
+            if(newClaim!=null&&!newClaim.isEmpty()&&newClaim.length()<=1024)Session.prefs(context).edit().putString("www_claim",newClaim).apply();
             long retryAfter=RetryPolicy.serverDelay(cn.getHeaderField("Retry-After"),System.currentTimeMillis());
             if(code!=200) {
                 JSONObject errorBody=null;
@@ -162,8 +166,25 @@ public final class InstagramClient {
         p.restricted=u.optBoolean("is_private",false) && permissionKnown && !follows && !owner.equals(p.id);
         return p;
     }
-    private String listPath(String id,String kind,String query,String rankToken,String cursor,String order) throws Exception {
-        return query==null||query.isEmpty()?RelationshipRequest.page(id,kind,rankToken,cursor,order):RelationshipRequest.search(id,kind,query);
+    private String listPath(String id,String kind,String rankToken,String cursor,String order) throws Exception {
+        return RelationshipRequest.page(id,kind,rankToken,cursor,order);
+    }
+    private int searchMode(String kind){return "followers".equals(kind)?followersSearchMode:followingSearchMode;}
+    private void searchMode(String kind,int mode){if("followers".equals(kind))followersSearchMode=mode;else followingSearchMode=mode;}
+    private JSONObject relationshipSearch(String id,String kind,String query) throws Exception {
+        int preferred=searchMode(kind),first=preferred==2?2:1,second=first==1?2:1;ViewerVerifier.Failure optional=null;
+        for(int mode:new int[]{first,second}) {
+            if(preferred!=0&&mode!=preferred&&optional==null)continue;
+            String requestPath=mode==1?RelationshipRequest.searchWeb(id,kind,query):RelationshipRequest.searchMinimal(id,kind,query);
+            try {
+                JSONObject result=get(requestPath);searchMode(kind,mode);
+                Session.prefs(context).edit().remove("last_error_detail").apply();return result;
+            } catch(ViewerVerifier.Failure failure) {
+                if(!RelationshipRequest.optionalSearchFailure(failure.code))throw failure;
+                optional=failure;
+            }
+        }
+        throw optional==null?new ViewerVerifier.Failure("BF_SEARCH_SCHEMA","Instagram liste araması desteklenen biçimlerden yanıt vermedi."):optional;
     }
     private Store.Edge edge(JSONObject u) throws Exception {
         String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.optString("username","");
@@ -178,7 +199,7 @@ public final class InstagramClient {
         if(expected==0){progress.page(kind,0,0,0);observer.received(kind,found,expected);return found;}
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);String cursor="";int rawRows=0;
         for(int page=0;page<RelationshipRequest.MAX_PAGES;page++) {
-            JSONObject j=get(listPath(id,kind,"",rankToken,cursor,""));
+            JSONObject j=get(listPath(id,kind,rankToken,cursor,""));
             JSONArray users=j.getJSONArray("users");rawRows+=users.length();ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {Store.Edge person=edge(users.getJSONObject(i));ids.add(person.id);found.put(person.id,person);}
             cursor=j.isNull("next_max_id")?"":j.optString("next_max_id","");
@@ -188,21 +209,26 @@ public final class InstagramClient {
                 traceList("REST",kind,page+1,rawRows,validation.count(),expected,more,!cursor.isEmpty());
                 progress.page(kind,page+1,validation.count(),expected);
                 if(!more) {guard();observer.received(kind,found,expected);return found;}
-            } catch(IllegalArgumentException e) {
-                throw new IOException(("followers".equals(kind)?"Takipçi listesi":"Takip edilenler listesi")+" • sayfa "+(page+1)+" • "+validation.count()+"/"+expected+" benzersiz kişi\n"+e.getMessage(),e);
+            } catch(IllegalArgumentException issue) {
+                if(RelationLogic.recoverable(issue)) {
+                    traceList("REST-kesildi",kind,page+1,rawRows,validation.count(),expected,true,!cursor.isEmpty());
+                    guard();observer.received(kind,found,expected);return found;
+                }
+                throw new IOException(("followers".equals(kind)?"Takipçi listesi":"Takip edilenler listesi")+" • sayfa "+(page+1)+" • "+validation.count()+"/"+expected+" benzersiz kişi\n"+issue.getMessage(),issue);
             }
         }
-        throw new IOException("Sayfa sınırına ulaşıldı; eksik liste kaydedilmedi.");
+        traceList("REST-sınır",kind,RelationshipRequest.MAX_PAGES,rawRows,found.size(),expected,true,!cursor.isEmpty());
+        guard();observer.received(kind,found,expected);return found;
     }
     private static final class RestPassResult {int pages,rows,added;boolean terminal,limited,unsupported;}
     private RestPassResult mergeRestPass(String id,String kind,int expected,String order,int pass,LinkedHashMap<String,Store.Edge> found) throws Exception {
         RestPassResult result=new RestPassResult();int beforeAll=found.size(),stagnant=0;String cursor="";
-        HashSet<String> cursors=new HashSet<>();String token=owner+"_"+kind+"_recovery_"+pass+"_"+UUID.randomUUID().toString();
+        HashSet<String> cursors=new HashSet<>();String token=RelationshipRequest.rankToken(owner,UUID.randomUUID().toString());
         for(int page=0;page<RelationshipRequest.MAX_PAGES;page++) {
             JSONObject j;
-            try {j=get(listPath(id,kind,"",token,cursor,order));}
+            try {j=get(listPath(id,kind,token,cursor,order));}
             catch(ViewerVerifier.Failure failure) {
-                if(page==0&&!order.isEmpty()&&(failure.code.equals("BF_HTTP_400")||failure.code.equals("BF_HTTP_404")||failure.code.equals("BF_QUERY")||failure.code.equals("BF_REJECTED"))) {
+                if(page==0&&!order.isEmpty()&&RelationshipRequest.optionalSearchFailure(failure.code)) {
                     result.unsupported=true;traceRestRecovery(kind,order,pass,0,0,0,found.size(),expected,false,false,true);return result;
                 }
                 throw failure;
@@ -216,11 +242,16 @@ public final class InstagramClient {
             if(users.length()==0||next.isEmpty()||!cursors.add(next)||stagnant>=3)break;
             cursor=next;
         }
-        result.added=found.size()-beforeAll;traceRestRecovery(kind,order.isEmpty()?"yeni-rank":order,pass,result.pages,result.rows,result.added,found.size(),expected,result.terminal,result.limited,false);
+        result.added=found.size()-beforeAll;
+        traceRestRecovery(kind,order.isEmpty()?"yeni-rank":order,pass,result.pages,result.rows,result.added,found.size(),expected,result.terminal,result.limited,false);
         return result;
     }
     private void recoverRestPasses(String id,String kind,int expected,LinkedHashMap<String,Store.Edge> found) throws Exception {
-        for(int pass=1;pass<=PrefixSearchLogic.EXTRA_REST_PASSES&&found.size()<expected;pass++)mergeRestPass(id,kind,expected,"",pass,found);
+        int zeroNew=0;
+        for(int stream=2;stream<=RelationshipRequest.MAX_STREAMS&&found.size()<expected&&zeroNew<RelationshipRequest.MAX_ZERO_STREAMS;stream++) {
+            RestPassResult pass=mergeRestPass(id,kind,expected,"",stream,found);
+            zeroNew=pass.added==0?zeroNew+1:0;
+        }
         if("followers".equals(kind)&&found.size()<expected) {
             mergeRestPass(id,kind,expected,"date_followed_latest",1,found);
             if(found.size()<expected)mergeRestPass(id,kind,expected,"date_followed_earliest",1,found);
@@ -250,7 +281,7 @@ public final class InstagramClient {
     /** Relationship search returns members of the target list. Query matching only guides partitioning; membership does not depend on the match reason. */
     private PrefixResult searchPrefix(String id,String kind,String query,LinkedHashMap<String,Store.Edge> found) throws Exception {
         PrefixResult result=new PrefixResult();result.requests=1;JSONObject j;
-        try {j=get(RelationshipRequest.search(id,kind,query));}
+        try {j=relationshipSearch(id,kind,query);}
         catch(ViewerVerifier.Failure failure) {
             if(RelationshipRequest.optionalSearchFailure(failure.code)){result.unsupported=true;result.failureCode=failure.code;return result;}
             throw failure;
@@ -343,7 +374,7 @@ public final class InstagramClient {
         listTrace.clear();Session.prefs(context).edit().remove("last_list_detail").apply();
         Snapshot s=new Snapshot();s.start=start;s.profile=profile;
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
-        String followerRank=owner+"_"+UUID.randomUUID().toString(),followingRank=owner+"_"+UUID.randomUUID().toString();
+        String followerRank=RelationshipRequest.rankToken(owner,UUID.randomUUID().toString()),followingRank=RelationshipRequest.rankToken(owner,UUID.randomUUID().toString());
         LinkedHashMap<String,Store.Edge> oldFollowers=new LinkedHashMap<>(),oldFollowing=new LinkedHashMap<>();
         try(Store history=new Store(context)) {
             oldFollowers=history.baseline(a.id,a.owner,"followers");

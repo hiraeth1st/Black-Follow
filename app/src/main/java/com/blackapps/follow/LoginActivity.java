@@ -58,9 +58,10 @@ public class LoginActivity extends Activity {
             if(startedAt!=navigation || !pageReady || name.isEmpty()) {
                 showError("Instagram sayfasında giriş yapılmış hesabın profil düğmesi doğrulanamadı. Instagram ana sayfasını açıp sayfa tamamen yüklendiğinde tekrar bas. [BF_LOGIN_PAGE]");return;
             }
-            if(!owner.equals(Session.owner(this))) ChangeNotifications.clear(this);
-            Session.prefs(this).edit().putString("owner",owner).putString("viewer_name",name).putBoolean("paused",false)
-                .putLong("verified_at",System.currentTimeMillis()).remove("pause_reason").apply();
+            boolean changed=!owner.equals(Session.owner(this));if(changed) ChangeNotifications.clear(this);
+            android.content.SharedPreferences.Editor edit=Session.prefs(this).edit().putString("owner",owner).putString("viewer_name",name).putBoolean("paused",false)
+                .putLong("verified_at",System.currentTimeMillis()).remove("pause_reason");
+            if(changed)edit.remove("www_claim");edit.apply();
             CookieManager.getInstance().flush();MonitorJob.schedule(this);
             Toast.makeText(this,"@"+name+" bağlandı",Toast.LENGTH_LONG).show();finish();
         });

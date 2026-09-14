@@ -252,7 +252,7 @@ public class MainActivity extends Activity {
     private void logout(){
         if(Monitor.BUSY.get()){toast("Önce mevcut kontrolün bitmesini bekle.");return;}
         new AlertDialog.Builder(this).setTitle("Oturumu kapat?").setMessage("Otomatik kontroller duracak. Kayıtların saklanacak ve aynı Instagram hesabıyla yeniden giriş yaptığında görünecek.").setNegativeButton("Vazgeç",null).setPositiveButton("Çıkış",(d,w)->{
-            ChangeNotifications.clear(this);Session.pause(this,"Oturum kapalı");Session.prefs(this).edit().remove("owner").remove("viewer_name").apply();
+            ChangeNotifications.clear(this);Session.pause(this,"Oturum kapalı");Session.prefs(this).edit().remove("owner").remove("viewer_name").remove("www_claim").apply();
             CookieManager.getInstance().removeAllCookies(ok->{CookieManager.getInstance().flush();resetChangedOwner();selected=0;render();});
             android.webkit.WebStorage.getInstance().deleteAllData();
         }).show();

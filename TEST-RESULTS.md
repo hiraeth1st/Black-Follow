@@ -50,3 +50,8 @@ Otomatik testler Instagram'ın canlı yanıtını garanti etmez. Özellikle aram
 - 100.000 kişilik doğrulama sınırı ve 1.000 sayfalık cursor güvenlik sınırı kaynakta sabitlenmiştir.
 
 - Tam kullanıcı adı veya özel karakter sorgularından biri HTTP 400 döndürürse yalnızca o sorgu atlanır. Güvenli ilk ASCII kök sorgusu başarısızsa arama yüzeyi kapatılır; çekirdek cursor sonuçları korunur.
+
+- İlk REST akışından sonra, güncel web istemcilerindeki gibi farklı `hesap_id_UUID` rank tokenlarıyla toplam on akışa kadar birleştirme yapılır; art arda iki akış yeni kimlik getirmezse gereksiz istekler durur.
+- İlişki araması önce web uyumlu `count=100`, HTTP 400/404 halinde count/rank/cursor içermeyen minimal biçimle denenir; çalışan biçim takipçi ve takip listesi için ayrı hatırlanır.
+- Boş/tekrarlanan imleç ve üç sayfalık durgunluk, alınmış kimlikleri silmez; bağımsız REST akışları ve isteğe bağlı aramalar devam eder. Fazla kişi ve geçersiz kimlik ölümcül kalır.
+- Web istekleri `X-ASBD-ID`, Fetch metadata ve sunucunun güncellediği `X-IG-WWW-Claim` ile gönderilir; hesap değişiminde claim temizlenir.
