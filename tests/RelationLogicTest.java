@@ -19,9 +19,13 @@ public class RelationLogicTest {
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(2);p.add(set("1"),"x",true);p.finish();},"unfinished pages cannot commit");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(2);p.add(set("1"),"x",true);p.add(set("1"),"",false);p.finish();},"duplicates cannot hide a missing unique identity");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"x",true);p.add(set("2"),"x",true);},"cursor loop");
+        try {RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"x",true);p.add(set("2"),"x",true);}catch(IllegalArgumentException e){check(RelationLogic.recoverable(e),"cursor loop is recoverable by another stream");}
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set(),"x",true);},"empty intermediate page");
+        try {RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set(),"x",true);}catch(IllegalArgumentException e){check(RelationLogic.recoverable(e),"empty intermediate page is recoverable");}
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("1","2"),"",false);},"count changed during scan");
+        try {RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("1","2"),"",false);}catch(IllegalArgumentException e){check(!RelationLogic.recoverable(e),"over-count is never recoverable");}
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("not-an-id"),"",false);},"invalid identity");
+        try {RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("not-an-id"),"",false);}catch(IllegalArgumentException e){check(!RelationLogic.recoverable(e),"invalid identity is fatal");}
         fails(()->new RelationLogic.Pages(RelationLogic.MAX_EXPECTED+1),"explicit size cap");check(new RelationLogic.Pages(10001).count()==0,"lists above the former 10k cap are accepted");
         fails(()->new RelationLogic.Pages(-1),"missing count not interpreted as zero");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(0);p.add(set(),"",false);p.add(set(),"",false);},"no data accepted after final page");
@@ -29,6 +33,7 @@ public class RelationLogicTest {
         RelationLogic.Pages duplicateOnly=new RelationLogic.Pages(2);duplicateOnly.add(set("1","2"),"next",true);duplicateOnly.add(set("2"),"",false);duplicateOnly.finish();check(duplicateOnly.count()==2,"terminal repeated boundary can complete exact unique count");
         RelationLogic.Pages delayed=new RelationLogic.Pages(3);delayed.add(set("1","2"),"p2",true);delayed.add(set("2"),"p3",true);delayed.add(set("3"),"",false);delayed.finish();check(delayed.count()==3,"one duplicate-only intermediate page can advance to new data");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"p2",true);p.add(set("1"),"p3",true);p.add(set("1"),"p4",true);p.add(set("1"),"p5",true);},"repeated non-progress stops even with changing cursors");
+        try {RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"p2",true);p.add(set("1"),"p3",true);p.add(set("1"),"p4",true);p.add(set("1"),"p5",true);}catch(IllegalArgumentException e){check(RelationLogic.recoverable(e),"stalled stream is recoverable");}
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(Arrays.asList((String)null),"",false);},"null identity is rejected cleanly");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(3);p.add(set("1"),"p2",true);p.add(set("1"),"p2",true);},"duplicate-only cursor loop still rejected");
         System.out.println("PASS: "+checks+" data-integrity checks");
