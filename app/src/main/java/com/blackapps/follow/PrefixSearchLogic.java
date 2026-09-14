@@ -2,19 +2,18 @@ package com.blackapps.follow;
 
 import java.util.*;
 
-/** Pure rules for completing a relationship list with bounded username and display-name searches. */
+/** Pure rules for bounded relationship-scoped username and display-name searches. */
 public final class PrefixSearchLogic {
     public static final String USERNAME_ALPHABET="abcdefghijklmnopqrstuvwxyz0123456789._";
     public static final String TURKISH_SEARCH_ALPHABET="çğıöşü";
     public static final String SEARCH_ALPHABET=USERNAME_ALPHABET+TURKISH_SEARCH_ALPHABET;
-    /** Compatibility alias: child username partitions remain limited to legal username characters. */
     public static final String ALPHABET=USERNAME_ALPHABET;
-    public static final int SEARCH_COUNT=1000;
+    public static final int SEARCH_CAP_HINT=40;
     public static final int SPLIT_AT=40;
     public static final int ROWS_AT=40;
     public static final int MAX_DEPTH=4;
     public static final int MAX_QUERIES=260;
-    public static final int ROOT_ROUNDS=2;
+    public static final int ROOT_ROUNDS=1;
     public static final int MAX_TARGETED=64;
     public static final int EXTRA_REST_PASSES=2;
     private static final Locale TURKISH=Locale.forLanguageTag("tr-TR");
@@ -35,14 +34,12 @@ public final class PrefixSearchLogic {
     }
 
     public static List<String> children(String prefix) {
-        // Turkish letters cannot occur in Instagram usernames. They are one-shot display-name searches.
         if(prefix==null || prefix.length()>=MAX_DEPTH || isTurkishDisplayQuery(prefix))return Collections.emptyList();
         ArrayList<String> result=new ArrayList<>(USERNAME_ALPHABET.length());
         for(int i=0;i<USERNAME_ALPHABET.length();i++)result.add(prefix+USERNAME_ALPHABET.charAt(i));
         return result;
     }
 
-    /** Dense, already observed username groups are queried first; zero-population groups remain as fallbacks. */
     public static List<String> prioritizedChildren(String prefix,Collection<String> usernames) {
         ArrayList<String> result=new ArrayList<>(children(prefix));
         HashMap<String,Integer> counts=new HashMap<>();
@@ -75,7 +72,6 @@ public final class PrefixSearchLogic {
         return username.toLowerCase(Locale.ROOT).startsWith(prefix.toLowerCase(Locale.ROOT));
     }
 
-    /** Turkish root searches recover relationship members through their display names. */
     public static boolean matchesSearchResult(String username,String fullName,String query) {
         if(isTurkishDisplayQuery(query)) {
             String name=fullName==null?"":fullName.toLowerCase(TURKISH);
@@ -89,7 +85,10 @@ public final class PrefixSearchLogic {
         return Math.min(MAX_TARGETED,Math.max(12,missing*4));
     }
 
-    /** Split username prefixes only; Turkish display-name roots intentionally remain one-shot searches. */
+    public static boolean shouldExploreRoot(String prefix,int knownPopulation,int missing) {
+        return missing>0 && prefix!=null && prefix.length()==1 && !isTurkishDisplayQuery(prefix) && knownPopulation>0;
+    }
+
     public static boolean shouldSplit(String prefix,int matchingRows,int totalRows,int knownPopulation,boolean incomplete) {
         return prefix!=null && !isTurkishDisplayQuery(prefix) && prefix.length()<MAX_DEPTH &&
             (incomplete || matchingRows<knownPopulation || matchingRows>=SPLIT_AT ||

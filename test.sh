@@ -6,6 +6,10 @@ java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com
 java -cp out/tests RelationLogicTest
 java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/PrefixSearchLogic.java tests/PrefixSearchLogicTest.java
 java -cp out/tests PrefixSearchLogicTest
+java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/RelationshipRequest.java tests/RelationshipRequestTest.java
+java -cp out/tests RelationshipRequestTest
+java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/PreviewLogic.java tests/PreviewLogicTest.java
+java -cp out/tests PreviewLogicTest
 java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/RetryPolicy.java tests/RetryPolicyTest.java
 java -cp out/tests RetryPolicyTest
 java com.sun.tools.javac.Main -encoding UTF-8 -d out/tests app/src/main/java/com/blackapps/follow/HistoryText.java app/src/main/java/com/blackapps/follow/ProfileLinks.java tests/HistoryTextTest.java

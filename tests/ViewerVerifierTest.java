@@ -18,7 +18,7 @@ public class ViewerVerifierTest {
         check(ViewerVerifier.verify("123",path->json("{\"data\":{\"user\":{\"pk\":123,\"username\":\"test_user\"}}}")).equals("test_user"),"numeric alternate id");
         calls[0]=0;
         check(ViewerVerifier.verify("123",path->{calls[0]++;if(calls[0]==1)return json("{\"data\":{\"user\":{\"username\":\"test_user\"}}}");
-            check(path.equals("/web/search/topsearch/?context=blended&query=test_user&include_reel=false&count=1000&__a=1"),"only authenticated viewer name can be resolved with bounded search");
+            check(path.equals("/web/search/topsearch/?context=blended&query=test_user&include_reel=false&__a=1"),"only authenticated viewer name can be resolved with bounded search");
             return json("{\"users\":[{\"user\":{\"username\":\"test_user\",\"id\":\"123\"}}]}");}).equals("test_user"),"missing id resolved from viewer username");
         check(calls[0]==2,"one optional identity lookup");
         failure("BF_OWNER",()->ViewerVerifier.verify("",path->{throw new AssertionError("must not request without owner");}));

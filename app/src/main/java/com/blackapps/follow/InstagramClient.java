@@ -32,8 +32,12 @@ public final class InstagramClient {
         listTrace.put(method+kind,method+" "+("followers".equals(kind)?"takipçi":"takip")+": sayfa="+page+", satır="+rows+", tekrar="+(rows-unique)+", kişi="+unique+"/"+expected+", devam="+more+", imleç="+cursor);
         saveListTrace();
     }
-    private void traceSearch(String kind,int requests,int rows,int unique,int expected,int queued,int depth,boolean split) {
-        listTrace.put("Search"+kind,"Önek araması "+("followers".equals(kind)?"takipçi":"takip")+": istek="+requests+", satır="+rows+", kişi="+unique+"/"+expected+", kuyruk="+queued+", derinlik="+depth+", bölündü="+split);
+    private void traceSearch(String kind,int requests,int rows,int added,int unique,int expected,int queued,int depth,boolean split) {
+        listTrace.put("Search"+kind,"Liste araması "+("followers".equals(kind)?"takipçi":"takip")+": istek="+requests+", satır="+rows+", yeni="+added+", kişi="+unique+"/"+expected+", kuyruk="+queued+", derinlik="+depth+", bölündü="+split);
+        saveListTrace();
+    }
+    private void traceSearchUnsupported(String kind,String type,String code,int unique,int expected) {
+        listTrace.put("SearchUnsupported"+kind+type,"Liste araması "+("followers".equals(kind)?"takipçi":"takip")+": tür="+type+", desteklenmedi="+code+", kişi="+unique+"/"+expected+"; normal ve REST kurtarma sonuçları korundu");
         saveListTrace();
     }
     private void traceTarget(String kind,int requests,int candidates,int recovered,int unique,int expected) {
@@ -159,10 +163,7 @@ public final class InstagramClient {
         return p;
     }
     private String listPath(String id,String kind,String query,String rankToken,String cursor,String order) throws Exception {
-        int count=query.isEmpty()?200:PrefixSearchLogic.SEARCH_COUNT;
-        return "/api/v1/friendships/"+id+"/"+kind+"/?count="+count+"&search_surface=follow_list_page&query="+URLEncoder.encode(query,"UTF-8")+"&enable_groups=true"+
-            ("following".equals(kind)?"&includes_hashtags=false":"")+"&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+
-            (order.isEmpty()?"":"&order="+URLEncoder.encode(order,"UTF-8"))+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8"));
+        return query==null||query.isEmpty()?RelationshipRequest.page(id,kind,rankToken,cursor,order):RelationshipRequest.search(id,kind,query);
     }
     private Store.Edge edge(JSONObject u) throws Exception {
         String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.optString("username","");
@@ -176,7 +177,7 @@ public final class InstagramClient {
         LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();
         if(expected==0){progress.page(kind,0,0,0);observer.received(kind,found,expected);return found;}
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);String cursor="";int rawRows=0;
-        for(int page=0;page<200;page++) {
+        for(int page=0;page<RelationshipRequest.MAX_PAGES;page++) {
             JSONObject j=get(listPath(id,kind,"",rankToken,cursor,""));
             JSONArray users=j.getJSONArray("users");rawRows+=users.length();ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {Store.Edge person=edge(users.getJSONObject(i));ids.add(person.id);found.put(person.id,person);}
@@ -197,7 +198,7 @@ public final class InstagramClient {
     private RestPassResult mergeRestPass(String id,String kind,int expected,String order,int pass,LinkedHashMap<String,Store.Edge> found) throws Exception {
         RestPassResult result=new RestPassResult();int beforeAll=found.size(),stagnant=0;String cursor="";
         HashSet<String> cursors=new HashSet<>();String token=owner+"_"+kind+"_recovery_"+pass+"_"+UUID.randomUUID().toString();
-        for(int page=0;page<200;page++) {
+        for(int page=0;page<RelationshipRequest.MAX_PAGES;page++) {
             JSONObject j;
             try {j=get(listPath(id,kind,"",token,cursor,order));}
             catch(ViewerVerifier.Failure failure) {
@@ -225,7 +226,10 @@ public final class InstagramClient {
             if(found.size()<expected)mergeRestPass(id,kind,expected,"date_followed_earliest",1,found);
         }
     }
-    private static final class PrefixResult {int requests,rows,matches;boolean incomplete;}
+    private static final class PrefixResult {
+        int requests,rows,matches,added;boolean incomplete,unsupported;String failureCode="";
+    }
+    private static final class TargetResult {int requests,recovered;boolean unsupported;}
     private static final class PrefixTask {
         final String prefix;final int score;
         PrefixTask(String prefix,int score){this.prefix=prefix;this.score=score;}
@@ -243,81 +247,82 @@ public final class InstagramClient {
         for(String child:PrefixSearchLogic.prioritizedChildren(parent,names))
             if(scheduled.add(child))queue.add(new PrefixTask(child,PrefixSearchLogic.population(child,names)));
     }
-    private PrefixResult searchPrefix(String id,String kind,String prefix,String rankToken,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
-        PrefixResult result=new PrefixResult();String cursor="";HashSet<String> cursors=new HashSet<>(),matched=new HashSet<>();
-        for(int page=0;page<20 && result.requests<budget;page++) {
-            JSONObject j=get(listPath(id,kind,prefix,rankToken,cursor,""));result.requests++;
-            JSONArray users=j.getJSONArray("users");result.rows+=users.length();
-            for(int i=0;i<users.length();i++) {
-                Store.Edge person=edge(users.getJSONObject(i));
-                if(PrefixSearchLogic.matchesSearchResult(person.username,person.name,prefix)){matched.add(person.id);found.put(person.id,person);}
-            }
-            if(found.size()>1000000)throw new IOException("Liste güvenli işleme sınırını aştı; geçmiş korunuyor.");
-            String next=j.isNull("next_max_id")?"":j.optString("next_max_id","");
-            boolean more=j.optBoolean("has_more",false)||!next.isEmpty();
-            result.incomplete|=j.optBoolean("should_limit_list_of_followers",false);
-            if(!more){result.matches=matched.size();return result;}
-            if(users.length()==0||next.isEmpty()||!cursors.add(next)){result.incomplete=true;result.matches=matched.size();return result;}
-            cursor=next;
+    /** Relationship search returns members of the target list. Query matching only guides partitioning; membership does not depend on the match reason. */
+    private PrefixResult searchPrefix(String id,String kind,String query,LinkedHashMap<String,Store.Edge> found) throws Exception {
+        PrefixResult result=new PrefixResult();result.requests=1;JSONObject j;
+        try {j=get(RelationshipRequest.search(id,kind,query));}
+        catch(ViewerVerifier.Failure failure) {
+            if(RelationshipRequest.optionalSearchFailure(failure.code)){result.unsupported=true;result.failureCode=failure.code;return result;}
+            throw failure;
         }
-        result.incomplete=true;result.matches=matched.size();return result;
+        JSONArray users=j.optJSONArray("users");
+        if(users==null){result.unsupported=true;result.failureCode="BF_SEARCH_SCHEMA";return result;}
+        result.rows=users.length();HashSet<String> matched=new HashSet<>();
+        for(int i=0;i<users.length();i++) {
+            Store.Edge person=edge(users.getJSONObject(i));
+            if(PrefixSearchLogic.matchesSearchResult(person.username,person.name,query))matched.add(person.id);
+            if(!found.containsKey(person.id))result.added++;
+            // Every row came from this target's followers/following search endpoint, so it is a valid relationship member.
+            found.put(person.id,person);
+        }
+        result.matches=matched.size();
+        result.incomplete=j.optBoolean("should_limit_list_of_followers",false)||users.length()>=PrefixSearchLogic.SEARCH_CAP_HINT;
+        return result;
     }
-    private int recoverBaseline(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
-        if(baseline==null||baseline.isEmpty()||found.size()>=expected||budget<=0)return 0;
+    private TargetResult recoverBaseline(String id,String kind,int expected,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
+        TargetResult result=new TargetResult();
+        if(baseline==null||baseline.isEmpty()||found.size()>=expected||budget<=0)return result;
         ArrayList<Store.Edge> candidates=new ArrayList<>();
         for(Store.Edge old:baseline.values())if(!found.containsKey(old.id))candidates.add(old);
         candidates.sort((a,b)->a.username.compareToIgnoreCase(b.username));
         int limit=Math.min(candidates.size(),Math.min(budget,PrefixSearchLogic.targetedLimit(expected-found.size())));
-        int requests=0,recovered=0;
         for(int i=0;i<limit&&found.size()<expected;i++) {
-            guard();Store.Edge candidate=candidates.get(i);
-            JSONObject j=get(listPath(id,kind,candidate.username,rankToken,"",""));requests++;
-            JSONArray users=j.getJSONArray("users");
-            for(int n=0;n<users.length();n++) {
-                Store.Edge person=edge(users.getJSONObject(n));
-                if(person.id.equals(candidate.id)||person.username.equalsIgnoreCase(candidate.username)) {
-                    if(!found.containsKey(person.id))recovered++;
-                    found.put(person.id,person);
-                }
-            }
+            guard();Store.Edge candidate=candidates.get(i);boolean before=found.containsKey(candidate.id);
+            PrefixResult part=searchPrefix(id,kind,candidate.username,found);result.requests+=part.requests;
+            if(part.unsupported){result.unsupported=true;traceSearchUnsupported(kind,"hedefli",part.failureCode,found.size(),expected);break;}
+            if(!before&&found.containsKey(candidate.id))result.recovered++;
             if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya hedefli arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
-            traceTarget(kind,requests,limit,recovered,found.size(),expected);
-            progress.page(kind+"_target",requests,found.size(),expected);
+            traceTarget(kind,result.requests,limit,result.recovered,found.size(),expected);
+            progress.page(kind+"_target",result.requests,found.size(),expected);
         }
-        return requests;
+        return result;
     }
     private LinkedHashMap<String,Store.Edge> completeBySearch(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found) throws Exception {
         if(found.size()==expected)return found;
-        int requests=0,rows=0;
+        int requests=0,rows=0,added=0;boolean searchAvailable=true;
         PriorityQueue<PrefixTask> queue=new PriorityQueue<>(PREFIX_ORDER);HashSet<String> scheduled=new HashSet<>();
         try {
-            requests+=recoverBaseline(id,kind,expected,rankToken,baseline,found,PrefixSearchLogic.MAX_QUERIES-requests);
-            if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
+            // Cursor traversals are authoritative and do not depend on the optional search surface.
             recoverRestPasses(id,kind,expected,found);
             if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
-            for(int round=1;round<=PrefixSearchLogic.ROOT_ROUNDS&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES;round++) {
+            TargetResult target=recoverBaseline(id,kind,expected,baseline,found,PrefixSearchLogic.MAX_QUERIES-requests);
+            requests+=target.requests;searchAvailable=!target.unsupported;
+            if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
+            if(searchAvailable) {
                 for(String prefix:PrefixSearchLogic.roots()) {
                     if(found.size()>=expected||requests>=PrefixSearchLogic.MAX_QUERIES)break;
                     guard();int knownBefore=PrefixSearchLogic.population(prefix,usernames(found));
-                    String queryToken=rankToken+"_root_"+round+"_"+prefix+"_"+UUID.randomUUID().toString();
-                    PrefixResult part=searchPrefix(id,kind,prefix,queryToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
-                    requests+=part.requests;rows+=part.rows;
+                    PrefixResult part=searchPrefix(id,kind,prefix,found);requests+=part.requests;rows+=part.rows;added+=part.added;
+                    if(part.unsupported) {
+                        traceSearchUnsupported(kind,PrefixSearchLogic.isTurkishDisplayQuery(prefix)?"Türkçe":"ASCII",part.failureCode,found.size(),expected);
+                        if(PrefixSearchLogic.isTurkishDisplayQuery(prefix))continue;
+                        searchAvailable=false;break;
+                    }
                     if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
-                    boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,knownBefore,part.incomplete);
+                    boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,knownBefore,part.incomplete)||PrefixSearchLogic.shouldExploreRoot(prefix,knownBefore,expected-found.size());
                     if(split)scheduleChildren(queue,scheduled,prefix,found);
-                    traceSearch(kind,requests,rows,found.size(),expected,queue.size(),prefix.length(),split);
+                    traceSearch(kind,requests,rows,added,found.size(),expected,queue.size(),prefix.length(),split);
                     progress.page(kind+"_search",requests,found.size(),expected);
                 }
             }
-            while(!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
+            while(searchAvailable&&!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
                 guard();PrefixTask task=queue.poll();int knownBefore=PrefixSearchLogic.population(task.prefix,usernames(found));
-                String queryToken=rankToken+"_child_"+task.prefix+"_"+UUID.randomUUID().toString();
-                PrefixResult part=searchPrefix(id,kind,task.prefix,queryToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
-                requests+=part.requests;rows+=part.rows;
+                PrefixResult part=searchPrefix(id,kind,task.prefix,found);requests+=part.requests;rows+=part.rows;added+=part.added;
+                if(part.unsupported){traceSearchUnsupported(kind,"alt-önek",part.failureCode,found.size(),expected);searchAvailable=false;break;}
                 if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
                 boolean split=PrefixSearchLogic.shouldSplit(task.prefix,part.matches,part.rows,knownBefore,part.incomplete);
                 if(split)scheduleChildren(queue,scheduled,task.prefix,found);
-                traceSearch(kind,requests,rows,found.size(),expected,queue.size(),task.prefix.length(),split);
+                traceSearch(kind,requests,rows,added,found.size(),expected,queue.size(),task.prefix.length(),split);
                 progress.page(kind+"_search",requests,found.size(),expected);
             }
             guard();observer.received(kind,found,expected);return found;

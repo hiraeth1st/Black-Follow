@@ -127,14 +127,22 @@ public final class Store extends SQLiteOpenHelper {
             if(!c.moveToFirst())return null;Preview p=new Preview();p.expected=c.getInt(0);p.received=c.getInt(1);p.observed=c.getLong(2);return p;
         }
     }
+    private LinkedHashMap<String,Edge> previewCandidates(long account,String owner,String kind,int expected) {
+        LinkedHashMap<String,Edge> out=new LinkedHashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT e.person,e.username,e.name,e.avatar FROM preview_edges e JOIN previews p ON p.account=e.account AND p.kind=e.kind JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? AND p.expected=? AND p.observed>=a.last_success",new String[]{""+account,owner,kind,""+expected})) {
+            while(c.moveToNext()) {Edge e=new Edge(c.getString(0),c.getString(1),c.getString(2));e.avatar=c.getString(3);out.put(e.id,e);}
+        }
+        return out;
+    }
     public void savePreview(Account a,String kind,LinkedHashMap<String,Edge> people,int expected) {
         if(!(kind.equals("followers")||kind.equals("following")) || expected<0 || people.size()>expected)throw new IllegalArgumentException("Geçersiz liste önizlemesi.");
+        LinkedHashMap<String,Edge> merged=PreviewLogic.merge(previewCandidates(a.id,a.owner,kind,expected),people,expected);
         SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
         try {
             if(get(a.id,a.owner)==null)return;
             db.delete("previews","account=? AND kind=?",new String[]{""+a.id,kind});
-            ContentValues v=new ContentValues();v.put("account",a.id);v.put("kind",kind);v.put("expected",expected);v.put("received",people.size());v.put("observed",System.currentTimeMillis());db.insertOrThrow("previews",null,v);
-            for(Edge e:people.values()) {
+            ContentValues v=new ContentValues();v.put("account",a.id);v.put("kind",kind);v.put("expected",expected);v.put("received",merged.size());v.put("observed",System.currentTimeMillis());db.insertOrThrow("previews",null,v);
+            for(Edge e:merged.values()) {
                 ContentValues row=new ContentValues();row.put("account",a.id);row.put("kind",kind);row.put("person",e.id);row.put("username",e.username);row.put("name",e.name);row.put("avatar",e.avatar);db.insertOrThrow("preview_edges",null,row);
             }
             db.setTransactionSuccessful();

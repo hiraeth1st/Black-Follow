@@ -22,7 +22,7 @@ public final class Monitor {
             boolean due=false;
             for(Store.Account a:store.accounts(owner)) if((a.enabled||profileOnly||(force&&onlyId>0)) && (onlyId<=0 || a.id==onlyId) && (force||a.nextDue<=System.currentTimeMillis())) {due=true;break;}
             if(!due) return force?"Kontrol edilecek hesap yok.":"Henüz kontrol zamanı gelen hesap yok.";
-            long deadline=System.currentTimeMillis()+(force&&!profileOnly?12:7)*60000;
+            long deadline=System.currentTimeMillis()+(force&&!profileOnly?30:7)*60000;
             InstagramClient client=new InstagramClient(c,owner,deadline,(kind,page,received,total)->progress=(kind.startsWith("followers")?"Takipçiler":"Takip edilenler")+(kind.endsWith("_target")?" • hedefli arama":kind.endsWith("_search")?" • önek araması":"")+": "+received+"/"+total+" kişi • "+((kind.endsWith("_target")||kind.endsWith("_search"))?"istek ":"sayfa ")+page);
             int ok=0, failed=0, profiles=0, previews=0;String lastError="",changes="";
             for(Store.Account a:store.accounts(owner)) {

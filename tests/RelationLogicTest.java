@@ -22,7 +22,7 @@ public class RelationLogicTest {
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set(),"x",true);},"empty intermediate page");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("1","2"),"",false);},"count changed during scan");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(1);p.add(set("not-an-id"),"",false);},"invalid identity");
-        fails(()->new RelationLogic.Pages(10001),"explicit size cap");
+        fails(()->new RelationLogic.Pages(RelationLogic.MAX_EXPECTED+1),"explicit size cap");check(new RelationLogic.Pages(10001).count()==0,"lists above the former 10k cap are accepted");
         fails(()->new RelationLogic.Pages(-1),"missing count not interpreted as zero");
         fails(()->{RelationLogic.Pages p=new RelationLogic.Pages(0);p.add(set(),"",false);p.add(set(),"",false);},"no data accepted after final page");
         RelationLogic.Pages overlap=new RelationLogic.Pages(3);overlap.add(Arrays.asList("1","1","2"),"next",true);overlap.add(Arrays.asList("2","3"),"",false);overlap.finish();check(overlap.count()==3,"same-page and cross-page duplicates merge by identity");

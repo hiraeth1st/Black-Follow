@@ -4,6 +4,7 @@ import java.util.*;
 
 /** Pure logic: identity is Instagram's numeric user ID, never the username. */
 public final class RelationLogic {
+    public static final int MAX_EXPECTED=100000;
     public static final class Change {
         public final Set<String> added, removed;
         Change(Set<String> a, Set<String> r) { added=a; removed=r; }
@@ -22,7 +23,7 @@ public final class RelationLogic {
         private boolean finished;private int stagnantPages;
         public int count(){return ids.size();}
         public Pages(int expected) {
-            if(expected<0 || expected>10000) throw new IllegalArgumentException("Bu test sürümü liste başına en fazla 10.000 kişiyi destekliyor.");
+            if(expected<0 || expected>MAX_EXPECTED) throw new IllegalArgumentException("Bu sürüm liste başına en fazla "+MAX_EXPECTED+" kişiyi doğrular.");
             this.expected=expected;
         }
         public void add(Collection<String> page, String next, boolean more) {

@@ -14,7 +14,7 @@ public class ProfileLookupTest {
         int gets,posts;boolean failSearch,failProfile;String query;
         JSONObject search=new JSONObject("{\"users\":[{\"user\":{\"pk\":\"8\",\"username\":\"similar_name\"}},{\"user\":{\"pk\":\"456\",\"username\":\"target\"}}]}");
         JSONObject profile=new JSONObject("{\"data\":{\"user\":{\"pk\":\"456\",\"username\":\"target\",\"is_private\":true,\"follower_count\":28,\"following_count\":19}}}");
-        public JSONObject get(String path)throws Exception{gets++;if(failSearch)throw new IOException("rate gate");check(path.startsWith("/web/search/topsearch/?"),"explicit account search");return search;}
+        public JSONObject get(String path)throws Exception{gets++;if(failSearch)throw new IOException("rate gate");check(path.startsWith("/web/search/topsearch/?"),"explicit account search");check(!path.contains("count=1000"),"account lookup avoids oversized result requests");return search;}
         public JSONObject post(String path,String form)throws Exception{posts++;query=URLDecoder.decode(form,"UTF-8");check(path.equals("/graphql/query/"),"profile POST target");if(failProfile)throw new IOException("rate gate");return profile;}
     }
     public static void main(String[] args)throws Exception{
