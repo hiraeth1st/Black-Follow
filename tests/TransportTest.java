@@ -75,7 +75,9 @@ public class TransportTest {
         responses.add(new Fixture(200,"{\"users\":[]}"));
         responses.add(graphqlPage("followers",3,1,2,"",false));
         try {client().snapshot(account(),profile(3,0),0);throw new AssertionError("partial snapshot accepted");}
-        catch(IOException e){check(e.getMessage().contains("2/3")&&e.getMessage().contains("BF_LIST_PARTIAL"),"duplicates never disguise missing unique records");}
+        catch(IOException e){check(e.getMessage().contains("2/3")&&e.getMessage().contains("BF_LIST_PARTIAL"),"duplicates never disguise missing unique records");
+            check(e.getMessage().contains("REST takipçi: sayfa=2, satır=3, tekrar=1, kişi=2/3, devam=false, imleç=false"),"diagnostic distinguishes returned rows from repeated identities and terminal cursor");
+            check(e.getMessage().contains("GraphQL takipçi: sayfa=1, satır=2, tekrar=0, kişi=2/3"),"independent method has separate raw and unique counts");}
         check(requests==4,"incomplete followers read following then attempt one independent traversal");
         responses.clear();requests=0;
         responses.add(new Fixture(200,"{\"users\":[{\"pk\":null,\"id\":\"1\",\"username\":\"a\"}]}"));

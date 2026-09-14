@@ -11,6 +11,7 @@ public class Session {
         public String getString(String key,String fallback){return fallback;}
         public Prefs edit(){return this;}
         public Prefs putString(String k,String v){lastDetail=v;return this;}
+        public Prefs remove(String key){return this;}
         public void apply(){}
     }
 }

@@ -1,4 +1,8 @@
-# Black Follow 0.3.4 doğrulaması
+# Black Follow 0.3.5 doğrulaması
+
+321 kontrol CI kapısı: önceki 319 kontrol ve iki gerçek HTTP istemcisi tanı kontrolü. REST 3 satır / 1 tekrar / 2 benzersiz kişi sonucu ile GraphQL 2 satır / 0 tekrar / 2 kişi sonucu ayrı doğrulanır. İmleç içeriği tanıya girmez; yalnızca varlığı kaydedilir. Açık listede otomatik yeniden çizim durduruldu; elle kontrol sonunda kaydırma konumu korunur. Android arayüzü cihaz üzerinde test edilmedi. Eksik canlı liste sorunu çözülmüş olarak sunulmaz.
+
+## Önceki 0.3.4 doğrulaması
 
 319 kontrol hedeflenir: önceki 316 kontrol ve REST istek bağlamı, belirtecin sayfalar boyunca sabitliği, iki listenin bağımsız belirteçleri için üç kontrol. GitHub Actions sonucu derleme kapısıdır. Testler sentetik yanıtlar kullanır; web sunucusunun yeni parametreleri uyguladığını veya canlı hesaptaki tüm eksiklerin giderildiğini kanıtlamaz. Giriş, erişim kısıtlamaları ve tam liste olmadan geçmişi değiştirmeme kuralları korunur.
 

@@ -27,6 +27,11 @@ public final class InstagramClient {
     public interface ListObserver {void received(String kind,LinkedHashMap<String,Store.Edge> people,int expected) throws Exception;}
     private ListObserver observer=(kind,people,expected)->{};
     public void observeLists(ListObserver observer){this.observer=observer;}
+    private final LinkedHashMap<String,String> listTrace=new LinkedHashMap<>();
+    private void traceList(String method,String kind,int page,int rows,int unique,int expected,boolean more,boolean cursor) {
+        listTrace.put(method+kind,method+" "+("followers".equals(kind)?"takipçi":"takip")+": sayfa="+page+", satır="+rows+", tekrar="+(rows-unique)+", kişi="+unique+"/"+expected+", devam="+more+", imleç="+cursor);
+        Session.prefs(context).edit().putString("last_list_detail",String.join("\n",listTrace.values())).apply();
+    }
     private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private long lastRequest=0;
     public InstagramClient(Context c,String owner,long deadline) {this(c,owner,deadline,(kind,page,received,expected)->{});}
@@ -140,12 +145,12 @@ public final class InstagramClient {
     }
     private LinkedHashMap<String,Store.Edge> people(String id,String kind,int expected) throws Exception {
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);
-        LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";
+        LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";int rawRows=0;
         // Keep one ranking context for the entire REST traversal, including its first page.
         String rankToken=owner+"_"+UUID.randomUUID().toString();
         for(int page=0;page<200;page++) {
             JSONObject j=get("/api/v1/friendships/"+id+"/"+kind+"/?count=100&search_surface=follow_list_page&query=&enable_groups=true&rank_token="+URLEncoder.encode(rankToken,"UTF-8")+(cursor.isEmpty()?"":"&max_id="+URLEncoder.encode(cursor,"UTF-8")));
-            JSONArray users=j.getJSONArray("users");ArrayList<String> ids=new ArrayList<>();
+            JSONArray users=j.getJSONArray("users");rawRows+=users.length();ArrayList<String> ids=new ArrayList<>();
             for(int i=0;i<users.length();i++) {
                 JSONObject u=users.getJSONObject(i);String pk=u.isNull("pk")?u.optString("id",""):u.optString("pk","");String username=u.getString("username");
                 if(username.isEmpty()) throw new IOException("Eksik kullanıcı bilgisi; geçmiş korunuyor.");
@@ -158,6 +163,7 @@ public final class InstagramClient {
             boolean more=j.optBoolean("has_more",false) || !cursor.isEmpty();
             try {
                 validation.add(ids,cursor,more);
+                traceList("REST",kind,page+1,rawRows,validation.count(),expected,more,!cursor.isEmpty());
                 progress.page(kind,page+1,validation.count(),expected);
                 if(!more) {guard();observer.received(kind,found,expected);return found;}
             } catch(IllegalArgumentException e) {
@@ -181,7 +187,7 @@ public final class InstagramClient {
         String hash=followers?"37479f2b8209594dde7facb0d904896a":"58712303d941c6855d4e888c5f0cd22f";
         String field=followers?"edge_followed_by":"edge_follow";
         RelationLogic.Pages validation=new RelationLogic.Pages(expected);
-        LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";
+        LinkedHashMap<String,Store.Edge> found=new LinkedHashMap<>();String cursor="";int rawRows=0;
         progress.page(kind+"_graphql",0,0,expected);
         for(int page=0;page<1000;page++) {
             JSONObject variables=new JSONObject().put("id",id).put("include_reel",true).put("fetch_mutual",false).put("first",followers?12:24);
@@ -192,7 +198,7 @@ public final class InstagramClient {
                 if(user.has("id") && !id.equals(user.getString("id")))throw new IOException("Liste başka hesaba ait; geçmiş korunuyor. [BF_IDENTITY]");
                 JSONObject connection=user.getJSONObject(field);
                 if(connection.getInt("count")!=expected)throw new IOException("Liste toplamı kontrol sırasında değişti; geçmiş korunuyor. [BF_LIST_CHANGED]");
-                JSONArray edges=connection.getJSONArray("edges");ArrayList<String> ids=new ArrayList<>();
+                JSONArray edges=connection.getJSONArray("edges");rawRows+=edges.length();ArrayList<String> ids=new ArrayList<>();
                 for(int i=0;i<edges.length();i++) {
                     JSONObject u=edges.getJSONObject(i).getJSONObject("node");
                     String pk=u.getString("id"),username=u.getString("username");
@@ -204,6 +210,7 @@ public final class InstagramClient {
                 JSONObject info=connection.getJSONObject("page_info");boolean more=info.getBoolean("has_next_page");
                 cursor=info.isNull("end_cursor")?"":info.getString("end_cursor");
                 validation.add(ids,cursor,more);
+                traceList("GraphQL",kind,page+1,rawRows,validation.count(),expected,more,!cursor.isEmpty());
                 progress.page(kind+"_graphql",page+1,validation.count(),expected);
                 if(!more){guard();return found;}
             } catch(JSONException malformed) {
@@ -222,6 +229,7 @@ public final class InstagramClient {
         return first;
     }
     public Snapshot snapshot(Store.Account a,Profile profile,long start) throws Exception {
+        listTrace.clear();Session.prefs(context).edit().remove("last_list_detail").apply();
         Snapshot s=new Snapshot();s.start=System.currentTimeMillis();
         s.start=start;s.profile=profile;
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
@@ -230,7 +238,7 @@ public final class InstagramClient {
         s.followers=completeList(s.profile.id,"followers",s.profile.followers,s.followers);
         s.following=completeList(s.profile.id,"following",s.profile.following,s.following);
         if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
-            throw new PartialLists("İki liste yöntemiyle de tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen en geniş tek tarama ilgili sekmede. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]");
+            throw new PartialLists("İki liste yöntemiyle de tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen en geniş tek tarama ilgili sekmede. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]\n"+String.join("\n",listTrace.values()));
         Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");

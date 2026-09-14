@@ -1,6 +1,12 @@
-# Black Follow — Android 0.3.4
+# Black Follow — Android 0.3.5
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+
+## 0.3.5: açık listeyi koruma ve gerçek tarama tanısı
+
+Arka plan tamamlandığında açık hesap listesi kendiliğinden yeniden çizilmez; üstteki yeni kayıt bildirimiyle kullanıcı yeniler. Elle kontrol tamamlandığında kaydırma konumu korunur. Bu değişiklik eksik sunucu kayıtlarını tamamlamaz.
+
+Eksik liste mesajında her yöntemin sayfa, toplam dönen satır, tekrar, benzersiz kişi, devam bayrağı ve imleç varlığı gösterilir. Gerçek imleç, kişi kimliği, kullanıcı adı, cookie ve yanıt gövdesi tanıya yazılmaz. Bilgiyi kopyala veya menüdeki son hata kopyalama düğmesiyle alınabilir. Her hesap taramasında tanı sıfırlanır. Böylece tekrarların mı yoksa eksik terminal yanıtın mı etkili olduğu cihazdan görülebilir. 321 otomatik kontrol CI kapısıdır. Sürüm 0.3.5-test, versionCode 14; şema değişmedi. Canlı tam liste sorunu henüz çözülmüş değildir.
 
 ## 0.3.4: REST liste isteği bağlamı
 
@@ -95,7 +101,7 @@ Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimli�
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.3.4-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.3.5-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -143,7 +149,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.3.4-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.3.5-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 
