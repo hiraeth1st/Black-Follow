@@ -229,7 +229,7 @@ public final class InstagramClient {
     private static final class PrefixResult {
         int requests,rows,matches,added;boolean incomplete,unsupported;String failureCode="";
     }
-    private static final class TargetResult {int requests,recovered;boolean unsupported;}
+    private static final class TargetResult {int requests,recovered,unsupported;}
     private static final class PrefixTask {
         final String prefix;final int score;
         PrefixTask(String prefix,int score){this.prefix=prefix;this.score=score;}
@@ -279,7 +279,7 @@ public final class InstagramClient {
         for(int i=0;i<limit&&found.size()<expected;i++) {
             guard();Store.Edge candidate=candidates.get(i);boolean before=found.containsKey(candidate.id);
             PrefixResult part=searchPrefix(id,kind,candidate.username,found);result.requests+=part.requests;
-            if(part.unsupported){result.unsupported=true;traceSearchUnsupported(kind,"hedefli",part.failureCode,found.size(),expected);break;}
+            if(part.unsupported){result.unsupported++;traceSearchUnsupported(kind,"hedefli",part.failureCode,found.size(),expected);continue;}
             if(!before&&found.containsKey(candidate.id))result.recovered++;
             if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya hedefli arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
             traceTarget(kind,result.requests,limit,result.recovered,found.size(),expected);
@@ -289,14 +289,14 @@ public final class InstagramClient {
     }
     private LinkedHashMap<String,Store.Edge> completeBySearch(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found) throws Exception {
         if(found.size()==expected)return found;
-        int requests=0,rows=0,added=0;boolean searchAvailable=true;
+        int requests=0,rows=0,added=0;boolean searchAvailable=true,searchProbed=false;
         PriorityQueue<PrefixTask> queue=new PriorityQueue<>(PREFIX_ORDER);HashSet<String> scheduled=new HashSet<>();
         try {
             // Cursor traversals are authoritative and do not depend on the optional search surface.
             recoverRestPasses(id,kind,expected,found);
             if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
             TargetResult target=recoverBaseline(id,kind,expected,baseline,found,PrefixSearchLogic.MAX_QUERIES-requests);
-            requests+=target.requests;searchAvailable=!target.unsupported;
+            requests+=target.requests;searchAvailable=true;
             if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
             if(searchAvailable) {
                 for(String prefix:PrefixSearchLogic.roots()) {
@@ -304,10 +304,13 @@ public final class InstagramClient {
                     guard();int knownBefore=PrefixSearchLogic.population(prefix,usernames(found));
                     PrefixResult part=searchPrefix(id,kind,prefix,found);requests+=part.requests;rows+=part.rows;added+=part.added;
                     if(part.unsupported) {
-                        traceSearchUnsupported(kind,PrefixSearchLogic.isTurkishDisplayQuery(prefix)?"Türkçe":"ASCII",part.failureCode,found.size(),expected);
-                        if(PrefixSearchLogic.isTurkishDisplayQuery(prefix))continue;
-                        searchAvailable=false;break;
+                        boolean turkish=PrefixSearchLogic.isTurkishDisplayQuery(prefix);
+                        traceSearchUnsupported(kind,turkish?"Türkçe":"ASCII",part.failureCode,found.size(),expected);
+                        // The first ASCII root (a) is the capability probe. Later failures can be query-specific.
+                        if(!turkish&&!searchProbed){searchAvailable=false;break;}
+                        continue;
                     }
+                    if(!PrefixSearchLogic.isTurkishDisplayQuery(prefix))searchProbed=true;
                     if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
                     boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,knownBefore,part.incomplete)||PrefixSearchLogic.shouldExploreRoot(prefix,knownBefore,expected-found.size());
                     if(split)scheduleChildren(queue,scheduled,prefix,found);
@@ -318,7 +321,7 @@ public final class InstagramClient {
             while(searchAvailable&&!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
                 guard();PrefixTask task=queue.poll();int knownBefore=PrefixSearchLogic.population(task.prefix,usernames(found));
                 PrefixResult part=searchPrefix(id,kind,task.prefix,found);requests+=part.requests;rows+=part.rows;added+=part.added;
-                if(part.unsupported){traceSearchUnsupported(kind,"alt-önek",part.failureCode,found.size(),expected);searchAvailable=false;break;}
+                if(part.unsupported){traceSearchUnsupported(kind,"alt-önek",part.failureCode,found.size(),expected);continue;}
                 if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
                 boolean split=PrefixSearchLogic.shouldSplit(task.prefix,part.matches,part.rows,knownBefore,part.incomplete);
                 if(split)scheduleChildren(queue,scheduled,task.prefix,found);
@@ -351,7 +354,7 @@ public final class InstagramClient {
         s.followers=completeBySearch(s.profile.id,"followers",s.profile.followers,followerRank,oldFollowers,s.followers);
         s.following=completeBySearch(s.profile.id,"following",s.profile.following,followingRank,oldFollowing,s.following);
         if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
-            throw new PartialLists("Normal liste ve önek aramasıyla tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen kişiler önizleme olarak saklandı. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]\n"+String.join("\n",listTrace.values()));
+            throw new PartialLists("Normal liste, REST kurtarma ve liste aramalarıyla tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen kişiler önizleme olarak saklandı. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]\n"+String.join("\n",listTrace.values()));
         Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");

@@ -48,3 +48,5 @@ Otomatik testler Instagram'ın canlı yanıtını garanti etmez. Özellikle aram
 - Arama sonucunun eşleşme sebebi üyelik doğrulaması olarak kullanılmaz; endpoint kapsamındaki tüm geçerli sayısal kimlikler birleştirilir.
 - Opsiyonel arama HTTP 400/404 ile reddedilirse çekirdek cursor sonucu korunur ve işlem `BF_LIST_PARTIAL` olarak sonlanır; generic kontrol hatasına dönüşmez.
 - 100.000 kişilik doğrulama sınırı ve 1.000 sayfalık cursor güvenlik sınırı kaynakta sabitlenmiştir.
+
+- Tam kullanıcı adı veya özel karakter sorgularından biri HTTP 400 döndürürse yalnızca o sorgu atlanır. Güvenli ilk ASCII kök sorgusu başarısızsa arama yüzeyi kapatılır; çekirdek cursor sonuçları korunur.
