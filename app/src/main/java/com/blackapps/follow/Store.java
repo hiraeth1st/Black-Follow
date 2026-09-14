@@ -151,6 +151,15 @@ public final class Store extends SQLiteOpenHelper {
         }
         return out;
     }
+    /** Last fully verified identities, used only to target recovery queries after a short scan. */
+    public LinkedHashMap<String,Edge> baseline(long account,String owner,String kind) {
+        if(!(kind.equals("followers")||kind.equals("following")))throw new IllegalArgumentException("Geçersiz liste türü.");
+        LinkedHashMap<String,Edge> out=new LinkedHashMap<>();
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT e.person,e.username,e.name,e.since,e.lower_bound,e.avatar FROM edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=?",new String[]{""+account,owner,kind})) {
+            while(c.moveToNext()) { Edge e=new Edge(c.getString(0),c.getString(1),c.getString(2));e.since=c.getLong(3);e.lower=c.getLong(4);e.avatar=c.getString(5);out.put(e.id,e); }
+        }
+        return out;
+    }
     private void event(Account a,String kind,String action,Edge e,long end) {
         ContentValues v=new ContentValues();v.put("account",a.id);v.put("kind",kind);v.put("action",action);v.put("person",e.id);v.put("username",e.username);v.put("name",e.name);v.put("lower_bound",a.lastStarted);v.put("detected",end);
         getWritableDatabase().insertOrThrow("events",null,v);

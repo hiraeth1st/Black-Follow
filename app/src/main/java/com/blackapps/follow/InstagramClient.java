@@ -36,6 +36,10 @@ public final class InstagramClient {
         listTrace.put("Search"+kind,"Önek araması "+("followers".equals(kind)?"takipçi":"takip")+": istek="+requests+", satır="+rows+", kişi="+unique+"/"+expected+", kuyruk="+queued+", derinlik="+depth+", bölündü="+split);
         saveListTrace();
     }
+    private void traceTarget(String kind,int requests,int candidates,int recovered,int unique,int expected) {
+        listTrace.put("Target"+kind,"Önceki listeden hedefli arama "+("followers".equals(kind)?"takipçi":"takip")+": istek="+requests+", aday="+candidates+", bulunan="+recovered+", kişi="+unique+"/"+expected);
+        saveListTrace();
+    }
     private void saveListTrace(){Session.prefs(context).edit().putString("last_list_detail",String.join("\n",listTrace.values())).apply();}
     private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private final int requestDelayMs;private long lastRequest=0;
@@ -183,6 +187,23 @@ public final class InstagramClient {
         throw new IOException("Sayfa sınırına ulaşıldı; eksik liste kaydedilmedi.");
     }
     private static final class PrefixResult {int requests,rows,matches;boolean incomplete;}
+    private static final class PrefixTask {
+        final String prefix;final int score;
+        PrefixTask(String prefix,int score){this.prefix=prefix;this.score=score;}
+    }
+    private static final Comparator<PrefixTask> PREFIX_ORDER=(left,right)->{
+        int byScore=Integer.compare(right.score,left.score);if(byScore!=0)return byScore;
+        int byDepth=Integer.compare(right.prefix.length(),left.prefix.length());if(byDepth!=0)return byDepth;
+        return left.prefix.compareTo(right.prefix);
+    };
+    private static List<String> usernames(LinkedHashMap<String,Store.Edge> found) {
+        ArrayList<String> out=new ArrayList<>(found.size());for(Store.Edge edge:found.values())out.add(edge.username);return out;
+    }
+    private void scheduleChildren(PriorityQueue<PrefixTask> queue,Set<String> scheduled,String parent,LinkedHashMap<String,Store.Edge> found) {
+        List<String> names=usernames(found);
+        for(String child:PrefixSearchLogic.prioritizedChildren(parent,names))
+            if(scheduled.add(child))queue.add(new PrefixTask(child,PrefixSearchLogic.population(child,names)));
+    }
     private PrefixResult searchPrefix(String id,String kind,String prefix,String rankToken,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
         PrefixResult result=new PrefixResult();String cursor="";HashSet<String> cursors=new HashSet<>(),matched=new HashSet<>();
         for(int page=0;page<20 && result.requests<budget;page++) {
@@ -202,18 +223,55 @@ public final class InstagramClient {
         }
         result.incomplete=true;result.matches=matched.size();return result;
     }
-    private LinkedHashMap<String,Store.Edge> completeBySearch(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> found) throws Exception {
+    private int recoverBaseline(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found,int budget) throws Exception {
+        if(baseline==null||baseline.isEmpty()||found.size()>=expected||budget<=0)return 0;
+        ArrayList<Store.Edge> candidates=new ArrayList<>();
+        for(Store.Edge old:baseline.values())if(!found.containsKey(old.id))candidates.add(old);
+        candidates.sort((a,b)->a.username.compareToIgnoreCase(b.username));
+        int limit=Math.min(candidates.size(),Math.min(budget,PrefixSearchLogic.targetedLimit(expected-found.size())));
+        int requests=0,recovered=0;
+        for(int i=0;i<limit&&found.size()<expected;i++) {
+            guard();Store.Edge candidate=candidates.get(i);
+            JSONObject j=get(listPath(id,kind,candidate.username,rankToken,""));requests++;
+            JSONArray users=j.getJSONArray("users");
+            for(int n=0;n<users.length();n++) {
+                Store.Edge person=edge(users.getJSONObject(n));
+                if(person.id.equals(candidate.id)||person.username.equalsIgnoreCase(candidate.username)) {
+                    if(!found.containsKey(person.id))recovered++;
+                    found.put(person.id,person);
+                }
+            }
+            if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya hedefli arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
+            traceTarget(kind,requests,limit,recovered,found.size(),expected);
+            progress.page(kind+"_target",requests,found.size(),expected);
+        }
+        return requests;
+    }
+    private LinkedHashMap<String,Store.Edge> completeBySearch(String id,String kind,int expected,String rankToken,LinkedHashMap<String,Store.Edge> baseline,LinkedHashMap<String,Store.Edge> found) throws Exception {
         if(found.size()==expected)return found;
-        ArrayDeque<String> queue=new ArrayDeque<>(PrefixSearchLogic.roots());int requests=0,rows=0;
+        int requests=0,rows=0;
+        PriorityQueue<PrefixTask> queue=new PriorityQueue<>(PREFIX_ORDER);HashSet<String> scheduled=new HashSet<>();
         try {
-            while(!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
-                guard();String prefix=queue.removeFirst();
-                PrefixResult part=searchPrefix(id,kind,prefix,rankToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
+            requests+=recoverBaseline(id,kind,expected,rankToken,baseline,found,PrefixSearchLogic.MAX_QUERIES-requests);
+            if(found.size()==expected){guard();observer.received(kind,found,expected);return found;}
+            for(String prefix:PrefixSearchLogic.roots()) {
+                if(found.size()>=expected||requests>=PrefixSearchLogic.MAX_QUERIES)break;
+                guard();PrefixResult part=searchPrefix(id,kind,prefix,rankToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
                 requests+=part.requests;rows+=part.rows;
                 if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
-                boolean split=PrefixSearchLogic.shouldSplit(prefix,Math.max(part.matches,part.rows),part.incomplete);
-                if(split)for(String child:PrefixSearchLogic.children(prefix))queue.addLast(child);
+                boolean split=PrefixSearchLogic.shouldSplit(prefix,part.matches,part.rows,part.incomplete);
+                if(split)scheduleChildren(queue,scheduled,prefix,found);
                 traceSearch(kind,requests,rows,found.size(),expected,queue.size(),prefix.length(),split);
+                progress.page(kind+"_search",requests,found.size(),expected);
+            }
+            while(!queue.isEmpty()&&found.size()<expected&&requests<PrefixSearchLogic.MAX_QUERIES) {
+                guard();PrefixTask task=queue.poll();
+                PrefixResult part=searchPrefix(id,kind,task.prefix,rankToken,found,PrefixSearchLogic.MAX_QUERIES-requests);
+                requests+=part.requests;rows+=part.rows;
+                if(found.size()>expected)throw new IOException("Liste kontrol sırasında değişti veya arama beklenmeyen kişi döndürdü; geçmiş korunuyor. [BF_LIST_CHANGED]");
+                boolean split=PrefixSearchLogic.shouldSplit(task.prefix,part.matches,part.rows,part.incomplete);
+                if(split)scheduleChildren(queue,scheduled,task.prefix,found);
+                traceSearch(kind,requests,rows,found.size(),expected,queue.size(),task.prefix.length(),split);
                 progress.page(kind+"_search",requests,found.size(),expected);
             }
             guard();observer.received(kind,found,expected);return found;
@@ -232,10 +290,15 @@ public final class InstagramClient {
         Snapshot s=new Snapshot();s.start=start;s.profile=profile;
         if(s.profile.restricted) throw new IOException("Gizli hesap: bu oturumun liste erişimi doğrulanamadı. Instagram'da takip onayını kontrol et.");
         String followerRank=owner+"_"+UUID.randomUUID().toString(),followingRank=owner+"_"+UUID.randomUUID().toString();
+        LinkedHashMap<String,Store.Edge> oldFollowers=new LinkedHashMap<>(),oldFollowing=new LinkedHashMap<>();
+        try(Store history=new Store(context)) {
+            oldFollowers=history.baseline(a.id,a.owner,"followers");
+            oldFollowing=history.baseline(a.id,a.owner,"following");
+        } catch(Exception ignored) { /* Baseline recovery is an optimization; the live scan remains authoritative. */ }
         s.followers=people(s.profile.id,"followers",s.profile.followers,followerRank);
         s.following=people(s.profile.id,"following",s.profile.following,followingRank);
-        s.followers=completeBySearch(s.profile.id,"followers",s.profile.followers,followerRank,s.followers);
-        s.following=completeBySearch(s.profile.id,"following",s.profile.following,followingRank,s.following);
+        s.followers=completeBySearch(s.profile.id,"followers",s.profile.followers,followerRank,oldFollowers,s.followers);
+        s.following=completeBySearch(s.profile.id,"following",s.profile.following,followingRank,oldFollowing,s.following);
         if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
             throw new PartialLists("Normal liste ve önek aramasıyla tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen kişiler önizleme olarak saklandı. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]\n"+String.join("\n",listTrace.values()));
         Profile after=profile(s.profile.username,s.profile.id);

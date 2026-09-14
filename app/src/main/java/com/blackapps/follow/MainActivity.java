@@ -224,18 +224,18 @@ public class MainActivity extends Activity {
         if(!profileOnly){usePreview=true;page=0;}
         Context app=getApplicationContext();toast("Kontrol başlatılıyor…");
         new Thread(()->{String result=profileOnly?Monitor.profile(app,id):Monitor.run(app,id,true);runOnUiThread(()->{if(isFinishing()||isDestroyed())return;refreshDisplayedData();new AlertDialog.Builder(this).setTitle("Kontrol sonucu").setMessage(result)
-            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.4.1\n"+result));toast("Kontrol bilgisi kopyalandı");})
+            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.4.2\n"+result));toast("Kontrol bilgisi kopyalandı");})
             .setPositiveButton("Tamam",null).show();});},"manual-check").start();
     }
     private void login(){if(Monitor.BUSY.get()){toast("Mevcut kontrolün bitmesini bekle.");return;}startActivity(new Intent(this,LoginActivity.class));}
     private void drawer(){
         Dialog dialog=new Dialog(this);LinearLayout panel=column();panel.setPadding(dp(22),dp(32),dp(22),dp(24));panel.setBackgroundColor(CARD);
-        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.4.1",13,MUTED));
+        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.4.2",13,MUTED));
         panel.addView(button("Hesap geçmişi",()->{dialog.dismiss();profilePage=false;selected=0;history=true;render();}));
         panel.addView(button("Instagram oturumu",()->{dialog.dismiss();login();}));
         panel.addView(button("Kontrol ayarları",()->{dialog.dismiss();settings();}));
         panel.addView(button(ChangeNotifications.enabled(this)?"Bildirim ayarları":"Bildirimleri aç",()->{dialog.dismiss();ChangeNotifications.request(this);}));
-        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.4.1\n"+Session.globalStatus(this)+"\n"+detail+"\n"+Session.prefs(this).getString("last_list_detail","")));toast("Hata bilgisi kopyalandı");}));
+        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.4.2\n"+Session.globalStatus(this)+"\n"+detail+"\n"+Session.prefs(this).getString("last_list_detail","")));toast("Hata bilgisi kopyalandı");}));
         if(selected>0)panel.addView(button("Bu hesabı dışa aktar (.txt)",()->{dialog.dismiss();exportReport();}));
         if(selected>0) panel.addView(button("Bu hesabın kayıtlarını sil",()->{dialog.dismiss();remove();}));
         panel.addView(button("Instagram'dan çıkış",()->{dialog.dismiss();logout();}));

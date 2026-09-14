@@ -1,4 +1,4 @@
-# Black Follow 0.4.1 doğrulaması
+# Black Follow 0.4.2 doğrulaması
 
 ## Değişiklik kapsamı
 
@@ -20,3 +20,10 @@
 ## Canlı cihaz sınırı
 
 Otomatik testler Instagram'ın canlı yanıtını garanti etmez. Özellikle arama sonuç sınırı, rate-limit ve hesap bazlı liste kısıtlamaları cihazda gerçek oturumla doğrulanmalıdır. Tam toplam elde edilemezse uygulamanın beklenen davranışı önizlemeyi saklamak ve doğrulanmış geçmişi değiştirmemektir.
+
+## 0.4.2 ek kontrolleri
+
+- Önceki doğrulanmış listedeki eksik kullanıcılar için sınırlı hedefli arama bütçesi.
+- Yoğun alt öneklerin önceliklendirilmesi ve sıfır eşleşmeli görünen-ad gürültüsünün bölünmemesi.
+- Dört karakterlik üst derinlik, toplam 220 istek bütçesi ve elle taramada 12 dakikalık zaman sınırı.
+- Tam sonucun dışında geçmiş ve bildirim üretmeme kuralı değişmedi.
