@@ -1,6 +1,19 @@
-# Black Follow — Android 0.2.4
+# Black Follow — Android 0.3.0
 
 Instagram takipçi / takip listelerinin erişilebildiği durumlarda yerel geçmişini tutan, bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
+
+## 0.3.0: Profilim ve takipçi çıkışları
+
+Alt gezinme çubuğunda solda büyüteç simgeli **Ara**, sağda boş profil simgeli **Profilim** bulunur. Ara sekmesi mevcut hesap arama/geçmiş ekranını açar. Profilim sekmesi giriş yapılan Instagram hesabını gösterir; kullanıcı adı elle yazılmaz.
+
+- Profilim ilk açıldığında hesap sabit oturum kimliğiyle kaydedilir ve henüz hiç denenmemişse tam liste kontrolü başlar. Önceden takip edilen aynı hesap varsa o kayıt ve geçmiş kullanılır; kullanıcı adı değişmesi ikinci kayıt oluşturmaz. İlk girişte veya kontrol sürerken gerekirse “Profilimi aç” düğmesi görünür.
+- Takipçi/takip sayıları, kişi listeleri, hareketler, elle yenileme ve TXT dışa aktarma kendi hesabında da çalışır. Yeni kayıt otomatik izlemeye açıktır; daha önce durdurulmuş bir kaydın tercihi korunur.
+- **Beni takipten çıkanlar** yalnızca kendi hesabının takipçi listesindeki çıkış olaylarını gösterir. Senin takip etmeyi bıraktığın kişiler bu filtreye karışmaz. İlk tam tarama başlangıçtır; daha önce kimlerin çıktığı geriye dönük çıkarılamaz.
+- Başarılı tam taramada kendi takipçi listenden çıkan kişiler isimleriyle bildirilir. Bildirime dokunmak Profilim içindeki çıkış filtresini açar. İlk tarama, eksik tarama ve sadece sayı değişikliği çıkış bildirimi üretmez. Başka hesaplar için önceki yeni kişi bildirimleri devam eder.
+- Çıkış; takipten çıkma, engelleme, hesap kapanması veya görünürlük değişikliği gibi nedenlerle olabilir. Tespit saati kesin olay saati değildir. Bildirimler tarama sonucuna bağlıdır: varsayılan otomatik kontrol 6 saattir, Android bildirim izni gerekir. Instagram'dan anlık bildirim bağlantısı yoktur.
+- Ara ekranındaki hesap, liste sayfası ve arama filtresi Profilim'e gidip dönünce geri yüklenir. Oturum değişince görünüm sıfırlanır; kullanıcı kayıtları birbirine aktarılmaz.
+
+Sürüm **0.3.0-test**, `versionCode=9`, veritabanı şeması 3. 263 otomatik kontrol ve yerel Android derlemesi başarılı. Giriş doğrulaması ve HTTP istek protokolü korunur. Yeni Android arayüzü ve bildirim teslimi burada cihazda çalıştırılmadı.
 
 ## 0.2.4: günlük kullanım ve rapor iyileştirmeleri
 
@@ -37,7 +50,7 @@ Profil akışı 0.2.2'deki gibi tam kullanıcı adı eşleşmesiyle hesap kimli�
 
 ## Telefonda ilk kullanım
 
-1. `Black-Follow-0.2.4-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
+1. `Black-Follow-0.3.0-test.apk` dosyasını Android 8.0 veya üzeri telefona kur.
 2. **Instagram'a giriş yap** düğmesine bas. Görünen sayfa `https://www.instagram.com` alan adındadır. Instagram kullanıcı adı/parola girişini ve varsa iki aşamalı doğrulamayı bu sayfada tamamla. Facebook üzerinden giriş desteklenmez.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas. Başarılı doğrulama sonrası ana ekran açılır.
 4. İlk denemeyi erişebildiğin, az takipçili bir hesapta yap. Kullanıcı adını yazıp **Hesap ekle • profil bilgilerini getir** düğmesine bas.
@@ -85,7 +98,7 @@ export BF_KEY_ALIAS=blackfollow
 bash build-apk.sh
 ```
 
-İmzalı çıktı: `out/Black-Follow-0.2.4-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
+İmzalı çıktı: `out/Black-Follow-0.3.0-test.apk`. İmza değişkenleri yoksa yalnızca kurulamaz durumdaki `out/aligned.apk` üretilir. İmzalama yedeği kaynak kod arşivine dahil değildir; ayrı özel teslim dosyasıdır. Güncellemeleri silmeden kurabilmek için aynı anahtar ve daha yüksek `versionCode` kullanılmalıdır.
 
 Oturum regresyon testlerini de çalıştırmak için `BF_JSON_JAR` değişkenini `org.json:json:20240303` JAR dosyasına ayarla ve `bash test.sh` çalıştır. Beklenen SHA-256: `3cf6cd6892e32e2b4c1c39e0f52f5248a2f5b37646fdfbb79a66b46b618414ed`. Bu yalnızca masaüstü test bağımlılığıdır; APK'ya eklenmez. GitHub iş akışı bu testleri de çalıştırır.
 

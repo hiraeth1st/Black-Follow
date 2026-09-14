@@ -99,4 +99,29 @@ assert len(db.execute(current_sql,('1','123','following')).fetchall())==205
 assert db.execute(current_sql,('1','other-owner','following')).fetchall()==[]
 assert db.execute(current_sql,('1','123','followers')).fetchone()[0]=='person'
 assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
-print('PASS: 34 SQLite migration, recurrence, export, filters and isolation checks')
+# Self profile identity is resolved by the signed-in numeric ID, never username alone.
+self_body=source.split('public Account self(',1)[1].split('public long ensureSelf',1)[0]
+self_sql=java_sql(re.search(r'rawQuery\(("(?:[^"\\]|\\.)*")',self_body).group(1))
+assert db.execute(self_sql,('123','123')).fetchall()==[]
+db.execute("INSERT INTO accounts(id,owner,remote,username) VALUES(3,'123','123','viewer_before_rename')")
+assert db.execute(self_sql,('123','123')).fetchone()[0]==3
+assert db.execute(self_sql,('other-owner','other-owner')).fetchall()==[]
+db.execute("UPDATE accounts SET username='viewer_after_rename' WHERE id=3")
+assert db.execute(self_sql,('123','123')).fetchone()[0]==3
+# The same remote profile observed under another login must not produce self alerts.
+db.execute("INSERT INTO accounts(id,owner,remote,username) VALUES(4,'other-owner','123','viewer_after_rename')")
+for account in [3,4]:
+    for kind,action,person in [('followers','removed','departed'),('following','removed','unfollowed'),('followers','added','arrived'),('following','added','followed')]:
+        db.execute("INSERT INTO events(account,kind,action,person,username,name,lower_bound,detected) VALUES(?,?,?,?,?,'',0,6000)",(account,kind,action,person,person))
+self_alerts=db.execute(notification_sql,('3','123','0')).fetchall()
+assert len(self_alerts)==3
+assert ('followers','removed','departed') in self_alerts
+assert all(not(r[0]=='following' and r[1]=='removed') for r in self_alerts)
+assert db.execute(notification_sql,('3','other-owner','0')).fetchall()==[]
+assert all(r[1]=='added' for r in db.execute(notification_sql,('4','other-owner','0')).fetchall())
+last_self=db.execute('SELECT MAX(id) FROM events WHERE account=3').fetchone()[0]
+assert db.execute(notification_sql,('3','123',str(last_self))).fetchall()==[]
+self_departures=db.execute(events_sql,('3','123','followers','followers','removed','removed','%','%','0')).fetchall()
+assert len(self_departures)==1 and self_departures[0][2]=='departed'
+assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
+print('PASS: 46 SQLite migration, self identity, notifications, export and isolation checks')

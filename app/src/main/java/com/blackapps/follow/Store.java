@@ -64,6 +64,23 @@ public final class Store extends SQLiteOpenHelper {
             if(!c.moveToFirst()) throw new IllegalStateException("Hesap kaydedilemedi."); return c.getLong(0);
         }
     }
+    /** Reuse the owner's stable-ID record, including manually tracked history. */
+    public Account self(String owner) {
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT * FROM accounts WHERE owner=? AND remote=?",new String[]{owner,owner})) {return c.moveToFirst()?account(c):null;}
+    }
+    public long ensureSelf(String owner,String username) {
+        if(!owner.matches("[0-9]+"))throw new IllegalArgumentException("Önce Instagram'a giriş yap.");
+        SQLiteDatabase db=getWritableDatabase();db.beginTransaction();
+        try {
+            Account existing=self(owner);
+            if(existing!=null){db.setTransactionSuccessful();return existing.id;}
+            long id=add(owner,username.toLowerCase(Locale.ROOT));Account a=get(id,owner);
+            if(a==null || (!a.remote.isEmpty()&&!a.remote.equals(owner)))throw new IllegalArgumentException("Profil adı başka bir kayda ait. Instagram oturumunu yeniden doğrula.");
+            ContentValues v=new ContentValues();v.put("remote",owner);
+            db.update("accounts",v,"id=? AND owner=?",new String[]{""+id,owner});
+            db.setTransactionSuccessful();return id;
+        }finally{db.endTransaction();}
+    }
     public void enabled(long id,String owner,boolean enabled) {
         ContentValues v=new ContentValues();v.put("enabled",enabled?1:0);
         getWritableDatabase().update("accounts",v,"id=? AND owner=?",new String[]{""+id,owner});
@@ -153,8 +170,8 @@ public final class Store extends SQLiteOpenHelper {
         return total==0?"\nBu kontrolde yeni hareket yok.":"\n"+total+" hareket tespit edildi:"+b+(total>20?"\nDiğer hareketler Hareketler sekmesinde ve dışa aktarmada.":"");
     }
     public NewPeople newPeople(long account,String owner,long after) {
-        NewPeople result=new NewPeople();
-        try(Cursor c=getReadableDatabase().rawQuery("SELECT e.kind,e.action,e.username FROM events e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.id>? AND e.action='added' ORDER BY e.id",new String[]{""+account,owner,""+after})) {
+        NewPeople result=new NewPeople(true);
+        try(Cursor c=getReadableDatabase().rawQuery("SELECT e.kind,e.action,e.username FROM events e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.id>? AND (e.action='added' OR (e.action='removed' AND e.kind='followers' AND a.remote=a.owner)) ORDER BY e.id",new String[]{""+account,owner,""+after})) {
             while(c.moveToNext())result.add(false,c.getString(0),c.getString(1),c.getString(2));
         }
         return result;

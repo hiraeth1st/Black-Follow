@@ -16,6 +16,16 @@ public class NewPeopleTest {
         check(p.total()==32 && p.followers==31,"bounded text retains complete counts");
         check(p.body().split("\n").length==16 && p.body().contains("Diğer 17 kişi"),"large changes produce bounded notification with remainder");
         check(new NewPeople().total()==0,"next scan starts empty, no historic repeats");
+        NewPeople own=new NewPeople(true);
+        own.add(true,"followers","removed","baseline");check(own.total()==0,"own baseline does not invent unfollowers");
+        own.add(false,"followers","removed","gone");check(own.leftFollowers==1&&own.total()==1,"own follower departure notifies");
+        check(own.body().contains("@gone takipçi listenden çıktı"),"departure names person without claiming certain unfollow");
+        own.add(false,"following","removed","stopped_following");check(own.total()==1,"own following removal is not a lost follower");
+        own.add(false,"followers","added","new_follower");check(own.followers==1&&own.leftFollowers==1&&own.total()==2,"equal counts can still notify one loss and one gain");
+        check(own.title().contains("1 takipçi çıktı"),"notification title includes departure count");
+        for(int i=0;i<20;i++)own.add(false,"followers","removed","gone"+i);
+        check(own.total()==22&&own.body().contains("Diğer 7 kişi"),"departure notification remains bounded");
+        check(new NewPeople(true).total()==0,"own next scan does not repeat old departures");
         check(RequestTrace.stage("/api/v1/users/web_profile_info/?username=secret").equals("Profil sayıları (web)"),"profile stage");
         check(RequestTrace.stage("/api/v1/friendships/123/followers/?max_id=secret").equals("Takipçi listesi"),"followers stage");
         check(RequestTrace.stage("/api/v1/friendships/123/following/").equals("Takip edilenler listesi"),"following stage");

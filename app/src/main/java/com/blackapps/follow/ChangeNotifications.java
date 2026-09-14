@@ -11,8 +11,8 @@ public final class ChangeNotifications {
     public static final int PERMISSION_REQUEST=771;
     private static NotificationManager manager(Context c){return (NotificationManager)c.getSystemService(Context.NOTIFICATION_SERVICE);}
     public static void initialize(Context c){
-        NotificationChannel channel=new NotificationChannel(CHANNEL,"Yeni takipçi ve takipler",NotificationManager.IMPORTANCE_DEFAULT);
-        channel.setDescription("Başarılı liste kontrolünde yeni kişiler bulunduğunda bildirim gönderir.");
+        NotificationChannel channel=new NotificationChannel(CHANNEL,"Takipçi ve takip değişiklikleri",NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setDescription("Yeni kişiler ve kendi takipçi listenden çıkanlar tespit edildiğinde bildirir.");
         channel.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);manager(c).createNotificationChannel(channel);
         String owner=Session.owner(c);
         if(!owner.equals(Session.prefs(c).getString("notification_owner",""))){manager(c).cancelAll();Session.prefs(c).edit().putString("notification_owner",owner).apply();}
@@ -41,9 +41,9 @@ public final class ChangeNotifications {
             NewPeople people=store.newPeople(a.id,a.owner,after);
             if(people.total()==0)return;
             Intent open=new Intent(c,MainActivity.class).setData(android.net.Uri.parse("blackfollow://account/"+a.id)).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra("notification_account",a.id).putExtra("notification_owner",a.owner);
+                .putExtra("notification_account",a.id).putExtra("notification_owner",a.owner).putExtra("notification_departures",people.leftFollowers>0);
             PendingIntent tap=PendingIntent.getActivity(c,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-            Notification publicVersion=new Notification.Builder(c,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("Black Follow").setContentText("Yeni kişiler tespit edildi.").build();
+            Notification publicVersion=new Notification.Builder(c,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("Black Follow").setContentText("Takip listelerinde değişiklik tespit edildi.").build();
             Notification alert=new Notification.Builder(c,CHANNEL).setSmallIcon(R.drawable.ic_notification).setContentTitle("@"+a.username+" • "+people.title())
                 .setContentText(people.body()).setStyle(new Notification.BigTextStyle().bigText(people.body()))
                 .setContentIntent(tap).setAutoCancel(true).setVisibility(Notification.VISIBILITY_PRIVATE).setPublicVersion(publicVersion).setCategory(Notification.CATEGORY_SOCIAL).build();

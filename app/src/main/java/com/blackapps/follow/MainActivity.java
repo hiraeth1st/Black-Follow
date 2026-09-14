@@ -16,6 +16,8 @@ import java.util.*;
 public class MainActivity extends Activity {
     private final int BG=Color.rgb(13,16,21), CARD=Color.rgb(24,29,37), GREEN=Color.rgb(184,243,107), MUTED=Color.rgb(159,173,191);
     private ScrollView scroll;private long renderedRevision;private int eventFilter=0;
+    private boolean profilePage=false;private String uiOwner="";
+    private long searchSelected=0;private String searchTab="followers",searchQuery="";private int searchPage=0,searchFilter=0;
     private LinearLayout content;private TextView status;private Store store;private AvatarLoader avatars;
     private String pendingExport="",exportOwner="";private boolean exporting=false;private static final int SAVE_REPORT=770;
     private long selected=0;private String tab="followers",query="";private int page=0;private boolean history=false;
@@ -32,20 +34,27 @@ public class MainActivity extends Activity {
     }
     public void onCreate(Bundle b) {
         super.onCreate(b);store=new Store(this);avatars=new AvatarLoader(this);
-        if(b!=null) {eventFilter=Math.max(0,Math.min(3,b.getInt("eventFilter",0)));selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
+        if(b!=null) {eventFilter=Math.max(0,Math.min(4,b.getInt("eventFilter",0)));selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
+        if(b!=null){profilePage=b.getBoolean("profilePage");uiOwner=b.getString("uiOwner","");searchSelected=b.getLong("searchSelected");searchTab=b.getString("searchTab","followers");searchQuery=b.getString("searchQuery","");searchPage=b.getInt("searchPage");searchFilter=Math.max(0,Math.min(4,b.getInt("searchFilter")));}
+        else uiOwner=Session.owner(this);
+        resetChangedOwner();
         ChangeNotifications.initialize(this);if(b==null)openNotification(getIntent());MonitorJob.schedule(this);render();
     }
-    public void onResume(){super.onResume();ChangeNotifications.initialize(this);if(store!=null) render();handler.post(ticker);}
+    public void onResume(){super.onResume();resetChangedOwner();ChangeNotifications.initialize(this);if(store!=null) render();handler.post(ticker);}
     public void onPause(){handler.removeCallbacks(ticker);super.onPause();}
     public void onDestroy(){if(store!=null) store.close();if(avatars!=null)avatars.close();super.onDestroy();}
-    public void onSaveInstanceState(Bundle b){b.putInt("eventFilter",eventFilter);b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
+    public void onSaveInstanceState(Bundle b){b.putBoolean("profilePage",profilePage);b.putString("uiOwner",uiOwner);b.putLong("searchSelected",searchSelected);b.putString("searchTab",searchTab);b.putString("searchQuery",searchQuery);b.putInt("searchPage",searchPage);b.putInt("searchFilter",searchFilter);b.putInt("eventFilter",eventFilter);b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);openNotification(intent);render();}
     private void openNotification(Intent intent){
         if(intent==null || !intent.hasExtra("notification_account"))return;
         long id=intent.getLongExtra("notification_account",0);String owner=intent.getStringExtra("notification_owner");
-        if(Session.owner(this).equals(owner) && store.get(id,owner)!=null){selected=id;tab="events";page=0;query="";eventFilter=0;ChangeNotifications.cancel(this,id);}
+        if(Session.owner(this).equals(owner) && store.get(id,owner)!=null){
+            Store.Account a=store.get(id,owner);boolean own=owner.equals(a.remote);
+            if(own&&!profilePage)saveSearchPage();profilePage=own;
+            selected=id;tab="events";page=0;query="";eventFilter=own&&intent.getBooleanExtra("notification_departures",false)?4:0;ChangeNotifications.cancel(this,id);
+        }
         else {selected=0;toast("Bildirim bu Instagram oturumuna ait değil veya hesap silinmiş.");}
-        intent.removeExtra("notification_account");intent.removeExtra("notification_owner");
+        intent.removeExtra("notification_departures");intent.removeExtra("notification_account");intent.removeExtra("notification_owner");
     }
     @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){super.onRequestPermissionsResult(request,permissions,results);if(request==ChangeNotifications.PERMISSION_REQUEST){toast(ChangeNotifications.enabled(this)?"Yeni kişiler tespit edildiğinde bildirim gönderilecek.":"Bildirim izni verilmedi; kayıtlar Hareketler sekmesinde tutulmaya devam eder.");render();}}
     private int dp(int x){return (int)(x*getResources().getDisplayMetrics().density);}
@@ -69,7 +78,46 @@ public class MainActivity extends Activity {
         Button menu=button("☰",this::drawer);menu.setContentDescription("Geçmiş ve ayarlar menüsü");top.addView(menu,new LinearLayout.LayoutParams(dp(58),dp(52)));root.addView(top);
         status=text(Session.globalStatus(this),12,GREEN);status.setOnClickListener(v->{if(!Monitor.BUSY.get() && renderedRevision!=Monitor.REVISION.get())refreshDisplayedData();});root.addView(status);
         scroll=new ScrollView(this);scroll.setFillViewport(true);content=column();content.setPadding(0,dp(12),0,dp(24));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
-        if(selected>0) detail();else home();
+        if(profilePage && selected==0) ownWelcome();else if(selected>0) detail();else home();
+        bottomNavigation(root);
+    }
+    private void resetChangedOwner(){
+        String owner=Session.owner(this);if(owner.equals(uiOwner))return;
+        uiOwner=owner;profilePage=false;selected=0;searchSelected=0;tab=searchTab="followers";query=searchQuery="";page=searchPage=eventFilter=searchFilter=0;
+    }
+    private void saveSearchPage(){searchSelected=selected;searchTab=tab;searchQuery=query;searchPage=page;searchFilter=eventFilter;}
+    private void showSearch(){
+        if(!profilePage)return;profilePage=false;selected=searchSelected;tab=searchTab;query=searchQuery;page=searchPage;eventFilter=searchFilter;render();
+    }
+    private void showOwn(){
+        if(profilePage)return;saveSearchPage();profilePage=true;selected=0;tab="followers";query="";page=eventFilter=0;loadOwn();
+    }
+    private void loadOwn(){
+        String owner=Session.owner(this);
+        if(owner.isEmpty()){render();return;}
+        Store.Account a=store.self(owner);
+        if(a==null && !Monitor.BUSY.get())try{selected=store.ensureSelf(owner,Session.prefs(this).getString("viewer_name",""));a=store.get(selected,owner);}catch(Exception e){toast("Profil kaydı hazırlanamadı. Instagram oturumunu kontrol et.");}
+        else if(a!=null)selected=a.id;
+        render();
+        if(a!=null && a.profileAttempt==0 && a.enabled && !Monitor.BUSY.get())check(a.id);
+    }
+    private void ownWelcome(){
+        label("Profilim",30,Color.WHITE);
+        label("Kendi takipçi ve takip listelerin; yeni gelenler ve listenden çıkanlar burada.",15,MUTED);
+        if(Session.owner(this).isEmpty())action("Instagram'a giriş yap",this::login);
+        else action("Profilimi aç",this::loadOwn);
+    }
+    private void bottomNavigation(LinearLayout root){
+        View divider=new View(this);divider.setBackgroundColor(CARD);root.addView(divider,new LinearLayout.LayoutParams(-1,dp(1)));
+        LinearLayout bar=new LinearLayout(this);bar.setPadding(0,dp(6),0,dp(6));
+        bar.addView(navItem("Ara",R.drawable.ic_search,!profilePage,this::showSearch),new LinearLayout.LayoutParams(0,dp(62),1));
+        bar.addView(navItem("Profilim",R.drawable.ic_profile,profilePage,this::showOwn),new LinearLayout.LayoutParams(0,dp(62),1));root.addView(bar);
+    }
+    private View navItem(String name,int icon,boolean active,Runnable action){
+        LinearLayout item=column();item.setGravity(Gravity.CENTER);if(active)item.setBackground(shape(CARD));
+        ImageView image=new ImageView(this);image.setImageResource(icon);image.setColorFilter(active?GREEN:MUTED);item.addView(image,new LinearLayout.LayoutParams(dp(27),dp(27)));
+        TextView label=text(name,11,active?GREEN:MUTED);label.setGravity(Gravity.CENTER);item.addView(label);
+        item.setContentDescription(name);item.setSelected(active);item.setFocusable(true);item.setClickable(true);item.setOnClickListener(v->action.run());return item;
     }
     private void home(){
         label(history?"Hesap geçmişi":"Takipte kal.",30,Color.WHITE);
@@ -101,14 +149,21 @@ public class MainActivity extends Activity {
         gap();label("Veriler bu telefonda saklanır. Saatler cihazın saat dilimindedir. Android pil tasarrufu otomatik kontrolleri geciktirebilir.",12,MUTED);
     }
     private void detail(){
-        Store.Account a=store.get(selected,Session.owner(this));if(a==null){selected=0;home();return;}
-        action("‹ Hesap geçmişine dön",()->{selected=0;history=true;render();});
+        Store.Account a=store.get(selected,Session.owner(this));if(a==null){selected=0;if(profilePage)ownWelcome();else home();return;}
+        boolean own=profilePage && a.owner.equals(a.remote);
+        if(!own)action("‹ Hesap geçmişine dön",()->{selected=0;history=true;render();});
+        else {label("Profilim",16,GREEN);action("Instagram profilimi aç",()->openProfile(a.username));}
         label("@"+a.username,28,Color.WHITE);if(!a.title.isEmpty()) label(a.title,14,MUTED);
         LinearLayout summary=card();summary.addView(text((a.followers<0?"—":a.followers)+" takipçi      "+(a.following<0?"—":a.following)+" takip",22,GREEN));
         summary.addView(text("Profil sayılarının zamanı: "+date(a.profileAt),12,MUTED));
         summary.addView(text("Kişi listelerinin zamanı: "+date(a.lastSuccess),12,MUTED));summary.addView(text("Son liste denemesi: "+date(a.lastAttempt),12,MUTED));summary.addView(text(Session.displayStatus(this,a.status),13,Color.WHITE));
         if(a.profileAt==0) label("Profil henüz alınamadı. Çizgi işareti sıfır kişi anlamına gelmez.",13,MUTED);
         if(Session.blocked(this)) label("Profil ve listeler Instagram erişim engeli nedeniyle yenilenemiyor. Bekleme bitene kadar yeni veri istenmez. Önceki bilgiler varsa tarihleriyle gösterilir.",13,MUTED);
+        if(own){
+            action("Beni takipten çıkanlar",()->{tab="events";eventFilter=4;query="";page=0;render();});
+            label("İlk tam taramadan sonra takipçi listenden çıkanlar burada birikir. Tespit edilen çıkış, engelleme veya hesabın kapanmasından da kaynaklanabilir.",12,MUTED);
+            if(!ChangeNotifications.enabled(this))action("Değişiklik bildirimlerini aç",()->ChangeNotifications.request(this));
+        }
         action("Listeyi şimdi yenile",()->check(a.id));
         rowButtons("Sayıları yenile",()->check(a.id,true),"Dışa aktar (.txt)",this::exportReport);
         action(a.enabled?"İzlemeyi durdur":"İzlemeyi sürdür",()->{store.enabled(a.id,a.owner,!a.enabled);render();});
@@ -120,12 +175,13 @@ public class MainActivity extends Activity {
         EditText search=new EditText(this);search.setTextColor(Color.WHITE);search.setHintTextColor(MUTED);search.setHint(tab.equals("events")?"Hareketlerde kullanıcı adı veya isim ara":"Listede isim ara");search.setSingleLine(true);search.setText(query);content.addView(search);
         action("Ara",()->{query=search.getText().toString().trim().replaceFirst("^@","");page=0;render();});
         if(tab.equals("events")) {
-            String[] options={"Tüm hareketler","Yeni takipçiler","Yeni takipler","Listeden çıkanlar"};
+            String[] options=own?new String[]{"Tüm hareketler","Yeni takipçiler","Yeni takipler","Listeden çıkanlar","Takipçilerimden çıkanlar"}:new String[]{"Tüm hareketler","Yeni takipçiler","Yeni takipler","Listeden çıkanlar"};
+            if(eventFilter>=options.length)eventFilter=0;
             action("Filtre: "+options[eventFilter],()->new AlertDialog.Builder(this).setTitle("Hareketleri filtrele").setSingleChoiceItems(options,eventFilter,(d,which)->{eventFilter=which;query=search.getText().toString().trim().replaceFirst("^@","");page=0;d.dismiss();render();}).setNegativeButton("Kapat",null).show());
             label("“Listeden çıktı” kaydı, takipten çıkma, engelleme veya hesabın kapanması gibi farklı nedenlerle oluşabilir. İki kontrol arasındaki kısa süreli değişiklikler kaçırılabilir.",12,MUTED);
         }
         int count=0;boolean hasMore=false;
-        String kind=eventFilter==1?"followers":eventFilter==2?"following":"",eventAction=eventFilter==3?"removed":eventFilter==0?"":"added";
+        String kind=(eventFilter==1||eventFilter==4)?"followers":eventFilter==2?"following":"",eventAction=eventFilter>=3?"removed":eventFilter==0?"":"added";
         try(Cursor c=tab.equals("events")?store.events(a.id,a.owner,query,kind,eventAction,page*100):store.edges(a.id,a.owner,tab,query,page*100)){
             while(c.moveToNext()) {
                 if(count==100){hasMore=true;break;}
@@ -146,7 +202,7 @@ public class MainActivity extends Activity {
                 }
             }
         }
-        if(count==0) label(tab.equals("events")?"Bu sayfada değişiklik kaydı yok.":"Bu sayfada kişi bulunamadı.",15,MUTED);
+        if(count==0) label(tab.equals("events")?(eventFilter==4?"Bu aramada takipçi listenden çıkan kimse kaydedilmemiş.":"Bu sayfada değişiklik kaydı yok."):"Bu sayfada kişi bulunamadı.",15,MUTED);
         label("Sayfa "+(page+1)+" • sayfa başına 100 kayıt. Kişiye dokunarak Instagram profilini açabilirsin.",12,MUTED);
         LinearLayout pages=new LinearLayout(this);if(page>0)pages.addView(button("‹ Önceki",()->{page--;render();}));if(hasMore)pages.addView(button("Sonraki ›",()->{page++;render();}));content.addView(pages);
     }
@@ -157,18 +213,18 @@ public class MainActivity extends Activity {
         if(Monitor.BUSY.get()){toast("Kontrol zaten sürüyor.");return;}
         Context app=getApplicationContext();toast("Kontrol başlatılıyor…");
         new Thread(()->{String result=profileOnly?Monitor.profile(app,id):Monitor.run(app,id,true);runOnUiThread(()->{if(isFinishing()||isDestroyed())return;render();new AlertDialog.Builder(this).setTitle("Kontrol sonucu").setMessage(result)
-            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.2.4\n"+result));toast("Kontrol bilgisi kopyalandı");})
+            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.3.0\n"+result));toast("Kontrol bilgisi kopyalandı");})
             .setPositiveButton("Tamam",null).show();});},"manual-check").start();
     }
     private void login(){if(Monitor.BUSY.get()){toast("Mevcut kontrolün bitmesini bekle.");return;}startActivity(new Intent(this,LoginActivity.class));}
     private void drawer(){
         Dialog dialog=new Dialog(this);LinearLayout panel=column();panel.setPadding(dp(22),dp(32),dp(22),dp(24));panel.setBackgroundColor(CARD);
-        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.2.4",13,MUTED));
-        panel.addView(button("Hesap geçmişi",()->{dialog.dismiss();selected=0;history=true;render();}));
+        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.3.0",13,MUTED));
+        panel.addView(button("Hesap geçmişi",()->{dialog.dismiss();profilePage=false;selected=0;history=true;render();}));
         panel.addView(button("Instagram oturumu",()->{dialog.dismiss();login();}));
         panel.addView(button("Kontrol ayarları",()->{dialog.dismiss();settings();}));
         panel.addView(button(ChangeNotifications.enabled(this)?"Bildirim ayarları":"Bildirimleri aç",()->{dialog.dismiss();ChangeNotifications.request(this);}));
-        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.2.4\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
+        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.3.0\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
         if(selected>0)panel.addView(button("Bu hesabı dışa aktar (.txt)",()->{dialog.dismiss();exportReport();}));
         if(selected>0) panel.addView(button("Bu hesabın kayıtlarını sil",()->{dialog.dismiss();remove();}));
         panel.addView(button("Instagram'dan çıkış",()->{dialog.dismiss();logout();}));
@@ -180,13 +236,13 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this).setTitle("Arka plan kontrolü").setItems(options,(d,i)->{Session.prefs(this).edit().putBoolean("automatic",i<3).putInt("hours",i==0?6:i==1?12:24).apply();MonitorJob.schedule(this);render();}).setNegativeButton("Kapat",null).show();
     }
     private void remove(){
-        long id=selected;new AlertDialog.Builder(this).setTitle("Bu hesabın geçmişi silinsin mi?").setMessage("Takipçi, takip ve hareket kayıtları bu telefondan silinecek; otomatik izleme duracak.").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{if(Monitor.BUSY.get()){toast("Kontrol bitince tekrar dene.");return;}store.delete(id,Session.owner(this));ChangeNotifications.cancel(this,id);selected=0;render();}).show();
+        long id=selected;new AlertDialog.Builder(this).setTitle("Bu hesabın geçmişi silinsin mi?").setMessage("Takipçi, takip ve hareket kayıtları bu telefondan silinecek; otomatik izleme duracak.").setNegativeButton("Vazgeç",null).setPositiveButton("Sil",(d,w)->{if(Monitor.BUSY.get()){toast("Kontrol bitince tekrar dene.");return;}store.delete(id,Session.owner(this));ChangeNotifications.cancel(this,id);selected=0;if(searchSelected==id)searchSelected=0;render();}).show();
     }
     private void logout(){
         if(Monitor.BUSY.get()){toast("Önce mevcut kontrolün bitmesini bekle.");return;}
         new AlertDialog.Builder(this).setTitle("Oturumu kapat?").setMessage("Otomatik kontroller duracak. Kayıtların saklanacak ve aynı Instagram hesabıyla yeniden giriş yaptığında görünecek.").setNegativeButton("Vazgeç",null).setPositiveButton("Çıkış",(d,w)->{
             ChangeNotifications.clear(this);Session.pause(this,"Oturum kapalı");Session.prefs(this).edit().remove("owner").remove("viewer_name").apply();
-            CookieManager.getInstance().removeAllCookies(ok->{CookieManager.getInstance().flush();selected=0;render();});
+            CookieManager.getInstance().removeAllCookies(ok->{CookieManager.getInstance().flush();resetChangedOwner();selected=0;render();});
             android.webkit.WebStorage.getInstance().deleteAllData();
         }).show();
     }
@@ -233,5 +289,5 @@ public class MainActivity extends Activity {
             final boolean saved=success;runOnUiThread(()->{exporting=false;if(!isFinishing()&&!isDestroyed())toast(saved?"Tarihçe TXT olarak kaydedildi.":"Kaydetme tamamlanamadı; hedef dosyayı kontrol et.");});
         },"save-history-export").start();
     }
-    @Override public void onBackPressed(){if(selected>0){selected=0;render();}else super.onBackPressed();}
+    @Override public void onBackPressed(){if(profilePage){showSearch();}else if(selected>0){selected=0;render();}else super.onBackPressed();}
 }

@@ -1,4 +1,13 @@
-# Black Follow 0.2.4 inceleme sonucu
+# Black Follow 0.3.0 doğrulaması
+
+- 263 otomatik kontrol: önceki 243 kontrole ek olarak 8 bildirim içerik/başlangıç/sınır kontrolü ve 12 gerçek SQLite sorgusuyla kendi hesap kimliği/çıkış filtresi/bildirim izolasyonu kontrolü.
+- Aynı kullanıcının sabit kimlikle bulunan eski kaydı; ad değişikliği; başka oturumun aynı hesabı izlemesi; takipçi çıkışlarının takip edilen çıkışlarından ayrılması; eşit toplam sayıda bir geliş ve bir çıkış; eski çıkışların tekrar bildirilmemesi denetlendi.
+- Profilim kaydı mevcut accounts tablosunda tutulur; şema değişmedi. ensureSelf işlemi transaction içinde sabit kimliği arar ve mevcut başlangıç kaydını yeniden kullanır. Bu metot cihazdaki SQLiteOpenHelper ile ayrıca çalıştırılmadı; kimlik seçimi ve bildirim sorguları SQLite üzerinde test edildi.
+- Android kaynak, Java ve D8 derlemesi yerelde tamamlandı. GitHub Actions testleri ve orijinal sertifikayla APK imzasını doğrular.
+- Alt sekmeler, Activity durum geri yükleme, gerçek Android bildirim teslimi ve canlı Instagram listeleri bu ortamda cihaz/emülatörde çalıştırılmadı. API ve giriş protokolü önceki çalışan sürümle aynıdır.
+
+## Önceki 0.2.4 incelemesi
+
 
 - Kullanıcı, 0.2.3 sürümünün kendi cihazında sorunsuz çalıştığını bildirdi. Giriş, oturum doğrulaması ve Instagram HTTP istek akışı bu güncellemede değiştirilmedi.
 - **243 otomatik kontrol başarılı:** önceki 221 kontrole ek olarak rapor listeleri için 7, gerçek SQLite sorgularında filtre/arama/sayfalama/liste dışa aktarma için 13, gerçek Monitor tamamlanma bildirimi için 2 kontrol.
