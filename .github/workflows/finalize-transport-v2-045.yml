@@ -22,6 +22,7 @@ jobs:
         run: |
           python3 tools/prepare_claim_045.py
           python3 tools/apply_client_transport_v2.py
+          python3 tools/fix_generated_java_045.py
           bash test.sh
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           bash build-apk.sh
@@ -34,10 +35,10 @@ jobs:
           ! grep -R -E 'SEARCH_COUNT=1000|&count=1000|_recovery_' app/src/main/java
       - name: Commit audited transport sources
         run: |
-          rm -f .github/workflows/finalize-transport-v2-045.yml .github/workflows/finalize-transport-045.yml tools/apply_client_transport_v2.py tools/finalize_transport_045.py tools/prepare_claim_045.py
+          rm -f .github/workflows/finalize-transport-v2-045.yml .github/workflows/finalize-transport-045.yml tools/apply_client_transport_v2.py tools/finalize_transport_045.py tools/prepare_claim_045.py tools/fix_generated_java_045.py
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Finalize audited relationship retrieval transport"
           git push origin HEAD:follower-audit-045
-# trigger 3
+# trigger 4
