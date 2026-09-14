@@ -12,13 +12,17 @@ public class MonitorPolicyTest {
         return c;
     }
     public static void main(String[] args){
+        long revision=Monitor.REVISION.get();
         Context c=fresh();Session.prefs(c).edit().putLong("blocked_until",System.currentTimeMillis()+7200000).putString("blocked_source","Instagram süre bildirmedi; uygulamanın kademeli beklemesi").apply();
         Monitor.profile(c,1);
         check(InstagramClient.requests==1&&Store.profiles==1,"manual profile executes despite old local timer and future next_due");
         check(!Session.manualRequired(c),"successful manual profile resumes background checks");
         check(!Monitor.BUSY.get(),"worker lock released after success");
+        check(Monitor.REVISION.get()>revision,"completed check publishes UI revision");
+        revision=Monitor.REVISION.get();
         c=fresh();InstagramClient.profileFailure=new InstagramClient.AccessError("rate",false,true);
         String result=Monitor.profile(c,1);
+        check(Monitor.REVISION.get()>revision,"failed check also publishes updated status");
         check(result.contains("BF_RATE_MANUAL")&&!result.contains("BF_RATE_WAIT"),"unknown-duration 429 returns no countdown");
         check(!Session.blocked(c)&&Session.manualRequired(c),"unknown rate stops automatic work only");
         Store.ACCOUNT.nextDue=0;Monitor.run(c,0,false);

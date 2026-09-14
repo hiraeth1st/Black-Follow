@@ -137,11 +137,11 @@ public final class Store extends SQLiteOpenHelper {
     }
     public Cursor edges(long account,String owner,String kind,String search,int offset) {
         String q="%"+search.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%";
-        return getReadableDatabase().rawQuery("SELECT e.username,e.name,e.since,e.lower_bound,e.avatar,e.person FROM edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? AND (e.username LIKE ? ESCAPE '\\' OR e.name LIKE ? ESCAPE '\\') ORDER BY e.since DESC,e.username COLLATE NOCASE LIMIT 100 OFFSET ?",new String[]{""+account,owner,kind,q,q,""+offset});
+        return getReadableDatabase().rawQuery("SELECT e.username,e.name,e.since,e.lower_bound,e.avatar,e.person FROM edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? AND (e.username LIKE ? ESCAPE '\\' OR e.name LIKE ? ESCAPE '\\') ORDER BY e.since DESC,e.username COLLATE NOCASE LIMIT 101 OFFSET ?",new String[]{""+account,owner,kind,q,q,""+offset});
     }
     private static final String REPEATS="(SELECT COUNT(*) FROM events x WHERE x.account=e.account AND x.kind=e.kind AND x.person=e.person AND x.action='added' AND x.id<=e.id)";
     private static final String REMOVED="(SELECT COALESCE(MAX(x.detected),0) FROM events x WHERE x.account=e.account AND x.kind=e.kind AND x.person=e.person AND x.action='removed' AND x.id<e.id)";
-    public Cursor events(long account,String owner,int offset) { return getReadableDatabase().rawQuery("SELECT e.kind,e.action,e.username,e.name,e.lower_bound,e.detected,"+REPEATS+","+REMOVED+" FROM events e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? ORDER BY e.detected DESC,e.id DESC LIMIT 100 OFFSET ?",new String[]{""+account,owner,""+offset}); }
+    public Cursor events(long account,String owner,String search,String kind,String action,int offset) { String q="%"+search.replace("\\","\\\\").replace("%","\\%").replace("_","\\_")+"%"; return getReadableDatabase().rawQuery("SELECT e.kind,e.action,e.username,e.name,e.lower_bound,e.detected,"+REPEATS+","+REMOVED+" FROM events e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND (?='' OR e.kind=?) AND (?='' OR e.action=?) AND (e.username LIKE ? ESCAPE '\\' OR e.name LIKE ? ESCAPE '\\') ORDER BY e.detected DESC,e.id DESC LIMIT 101 OFFSET ?",new String[]{""+account,owner,kind,kind,action,action,q,q,""+offset}); }
     public long lastEventId(long account,String owner) {
         try(Cursor c=getReadableDatabase().rawQuery("SELECT COALESCE(MAX(e.id),0) FROM events e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=?",new String[]{""+account,owner})){c.moveToFirst();return c.getLong(0);}
     }
@@ -169,6 +169,15 @@ public final class Store extends SQLiteOpenHelper {
                 if(c.getInt(1)==0)report.counts(c.getLong(0),c.getInt(3),c.getInt(4),c.getString(5));
                 else report.event(c.getLong(0),c.getString(6),c.getString(7),c.getString(8),c.getInt(9),c.getLong(10),c.getLong(11));
             }}
+            report.currentLists(a.lastSuccess);
+            if(a.lastSuccess>0) for(String kind:new String[]{"followers","following"}) {
+                report.listHeading(kind);
+                int count=0;
+                try(Cursor c=db.rawQuery("SELECT e.username,e.name,e.since,e.lower_bound FROM edges e JOIN accounts a ON a.id=e.account WHERE e.account=? AND a.owner=? AND e.kind=? ORDER BY e.username COLLATE NOCASE",new String[]{""+account,owner,kind})) {
+                    while(c.moveToNext()){report.person(c.getString(0),c.getString(1),c.getLong(2),c.getLong(3));count++;}
+                }
+                report.listCount(count);
+            }
             report.finish();db.setTransactionSuccessful();
         }finally{db.endTransaction();}
     }

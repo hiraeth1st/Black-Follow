@@ -1,4 +1,14 @@
-# Black Follow 0.2.3 doğrulaması
+# Black Follow 0.2.4 inceleme sonucu
+
+- Kullanıcı, 0.2.3 sürümünün kendi cihazında sorunsuz çalıştığını bildirdi. Giriş, oturum doğrulaması ve Instagram HTTP istek akışı bu güncellemede değiştirilmedi.
+- **243 otomatik kontrol başarılı:** önceki 221 kontrole ek olarak rapor listeleri için 7, gerçek SQLite sorgularında filtre/arama/sayfalama/liste dışa aktarma için 13, gerçek Monitor tamamlanma bildirimi için 2 kontrol.
+- Filtreli hareketlerde tekrar sayısının tüm geçmişten hesaplanması; başka oturumun verilerinin okunamaması; yüzde/alt çizgi içeren arama; 101 satırlık sayfa devam kontrolü; 205 kişilik eksiksiz rapor; başlangıç zamanı bilinmeyen kişi ve tespit aralığı doğrulandı.
+- Android kaynak/Java/D8 derlemesi yerelde tamamlandı. GitHub Actions aynı testleri tekrar çalıştırıp orijinal sertifikalı APK üretir.
+- Görsel Android UI testi, canlı Instagram liste testi ve arka plan bildirim teslimi bu yeni sürümde cihazda yapılmadı. Ekran yenileme sinyali üretim Monitor koduyla test edildi; Activity çizimi emülatörde çalıştırılmadı.
+- Şema 3 korunur; veri taşıma veya hesap/olay silme işlemi yoktur. Dışa aktarma mevcut yerel kayıtlardan tek veritabanı işlemi içinde hazırlanır ve ağ isteği göndermez.
+
+## Önceki 0.2.3 doğrulaması
+
 
 - 221 otomatik kontrol: 19 veri bütünlüğü, 15 Retry-After, 19 tarihçe/bağlantı, 15 bildirim/tanı, 21 SQLite, 25 gerçek Session sınıfıyla kayıtlı bekleme/oturum, 32 eski oturum protokolü, 22 profil sorgusu, 24 WebView sonuç/kimlik doğrulaması, 15 gerçek Monitor sınıfıyla kontrol akışı, 14 HTTP istemcisi kontrolü.
 - Eski iki saatlik yerel beklemeden elle profil yenilemeye geçiş; gerçek sunucu süresinin korunması; süre verilmeden tekrar gelen 429'un sayaç üretmemesi; arka planda tekrar istek yapılmaması; başarılı manuel kontrolle devam; hesabın değişmesi; kısmi liste hatasında geçmişin kaydedilmemesi test edildi. Android SharedPreferences/CookieManager ve ağ/Store sınırları bu testlerde sentetik; Session ve Monitor üretim kodudur.

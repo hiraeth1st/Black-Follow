@@ -15,25 +15,35 @@ import java.util.*;
 
 public class MainActivity extends Activity {
     private final int BG=Color.rgb(13,16,21), CARD=Color.rgb(24,29,37), GREEN=Color.rgb(184,243,107), MUTED=Color.rgb(159,173,191);
+    private ScrollView scroll;private long renderedRevision;private int eventFilter=0;
     private LinearLayout content;private TextView status;private Store store;private AvatarLoader avatars;
     private String pendingExport="",exportOwner="";private boolean exporting=false;private static final int SAVE_REPORT=770;
     private long selected=0;private String tab="followers",query="";private int page=0;private boolean history=false;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private final Runnable ticker=new Runnable(){public void run(){if(status!=null) status.setText(Monitor.BUSY.get()?(Monitor.progress.isEmpty()?"Instagram bağlantısı kontrol ediliyor…":Monitor.progress):Session.globalStatus(MainActivity.this));handler.postDelayed(this,2000);}};
+    private final Runnable ticker=new Runnable(){public void run(){
+        boolean changed=renderedRevision!=Monitor.REVISION.get();
+        if(!Monitor.BUSY.get() && changed && !(getCurrentFocus() instanceof EditText)) refreshDisplayedData();
+        if(status!=null) status.setText(Monitor.BUSY.get()?(Monitor.progress.isEmpty()?"Instagram bağlantısı kontrol ediliyor…":Monitor.progress):Session.globalStatus(MainActivity.this)+(renderedRevision!=Monitor.REVISION.get()?"\nYeni kayıtlar var • görmek için dokun.":""));
+        handler.postDelayed(this,2000);
+    }};
+    private void refreshDisplayedData() {
+        int y=scroll==null?0:scroll.getScrollY();render();
+        final ScrollView refreshed=scroll;refreshed.post(()->refreshed.scrollTo(0,y));
+    }
     public void onCreate(Bundle b) {
         super.onCreate(b);store=new Store(this);avatars=new AvatarLoader(this);
-        if(b!=null) {selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
+        if(b!=null) {eventFilter=Math.max(0,Math.min(3,b.getInt("eventFilter",0)));selected=b.getLong("selected");tab=b.getString("tab","followers");page=b.getInt("page");query=b.getString("query","");history=b.getBoolean("history");pendingExport=b.getString("pendingExport","");exportOwner=b.getString("exportOwner","");}
         ChangeNotifications.initialize(this);if(b==null)openNotification(getIntent());MonitorJob.schedule(this);render();
     }
     public void onResume(){super.onResume();ChangeNotifications.initialize(this);if(store!=null) render();handler.post(ticker);}
     public void onPause(){handler.removeCallbacks(ticker);super.onPause();}
     public void onDestroy(){if(store!=null) store.close();if(avatars!=null)avatars.close();super.onDestroy();}
-    public void onSaveInstanceState(Bundle b){b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
+    public void onSaveInstanceState(Bundle b){b.putInt("eventFilter",eventFilter);b.putLong("selected",selected);b.putString("tab",tab);b.putInt("page",page);b.putString("query",query);b.putBoolean("history",history);b.putString("pendingExport",pendingExport);b.putString("exportOwner",exportOwner);super.onSaveInstanceState(b);}
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);openNotification(intent);render();}
     private void openNotification(Intent intent){
         if(intent==null || !intent.hasExtra("notification_account"))return;
         long id=intent.getLongExtra("notification_account",0);String owner=intent.getStringExtra("notification_owner");
-        if(Session.owner(this).equals(owner) && store.get(id,owner)!=null){selected=id;tab="events";page=0;query="";ChangeNotifications.cancel(this,id);}
+        if(Session.owner(this).equals(owner) && store.get(id,owner)!=null){selected=id;tab="events";page=0;query="";eventFilter=0;ChangeNotifications.cancel(this,id);}
         else {selected=0;toast("Bildirim bu Instagram oturumuna ait değil veya hesap silinmiş.");}
         intent.removeExtra("notification_account");intent.removeExtra("notification_owner");
     }
@@ -50,14 +60,15 @@ public class MainActivity extends Activity {
     private LinearLayout card(){LinearLayout c=column();c.setPadding(dp(16),dp(12),dp(16),dp(12));c.setBackground(shape(CARD));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);lp.bottomMargin=dp(10);content.addView(c,lp);return c;}
     private String date(long n){return n==0?"Henüz yok":new SimpleDateFormat("dd.MM.yyyy HH:mm",Locale.forLanguageTag("tr-TR")).format(new Date(n));}
     private void render(){
+        renderedRevision=Monitor.REVISION.get();
         if(avatars!=null)avatars.clearPage();
         LinearLayout root=column();root.setBackgroundColor(BG);root.setPadding(dp(18),0,dp(18),0);
         root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(dp(18),i.getSystemWindowInsetTop(),dp(18),i.getSystemWindowInsetBottom());return i;});
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);
         TextView brand=text("BLACK FOLLOW",20,Color.WHITE);brand.setTypeface(null,Typeface.BOLD);top.addView(brand,new LinearLayout.LayoutParams(0,dp(60),1));
         Button menu=button("☰",this::drawer);menu.setContentDescription("Geçmiş ve ayarlar menüsü");top.addView(menu,new LinearLayout.LayoutParams(dp(58),dp(52)));root.addView(top);
-        status=text(Session.globalStatus(this),12,GREEN);root.addView(status);
-        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);content=column();content.setPadding(0,dp(12),0,dp(24));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        status=text(Session.globalStatus(this),12,GREEN);status.setOnClickListener(v->{if(!Monitor.BUSY.get() && renderedRevision!=Monitor.REVISION.get())refreshDisplayedData();});root.addView(status);
+        scroll=new ScrollView(this);scroll.setFillViewport(true);content=column();content.setPadding(0,dp(12),0,dp(24));scroll.addView(content);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
         if(selected>0) detail();else home();
     }
     private void home(){
@@ -106,13 +117,18 @@ public class MainActivity extends Activity {
         String[] kinds={"followers","following","events"},names={"Takipçiler","Takip edilen","Hareketler"};
         for(int i=0;i<3;i++){String k=kinds[i];Button b=button(names[i],()->{tab=k;page=0;query="";render();});if(tab.equals(k)) b.setBackground(shape(CARD));tabs.addView(b,new LinearLayout.LayoutParams(0,dp(52),1));}content.addView(tabs);
         if(a.lastSuccess==0){label("Henüz tam liste alınmadı. İlk başarılı kontrolden sonra mevcut kişiler “Zaman bilinmiyor” olarak görünecek.",15,MUTED);return;}
-        if(!tab.equals("events")) {
-            EditText search=new EditText(this);search.setTextColor(Color.WHITE);search.setHintTextColor(MUTED);search.setHint("Listede isim ara");search.setSingleLine(true);search.setText(query);content.addView(search);
-            action("Listede ara",()->{query=search.getText().toString().trim();page=0;render();});
-        } else label("“Listeden çıktı” kaydı, takipten çıkma, engelleme veya hesabın kapanması gibi farklı nedenlerle oluşabilir. İki kontrol arasındaki kısa süreli değişiklikler kaçırılabilir.",12,MUTED);
-        int count=0;
-        try(Cursor c=tab.equals("events")?store.events(a.id,a.owner,page*100):store.edges(a.id,a.owner,tab,query,page*100)){
+        EditText search=new EditText(this);search.setTextColor(Color.WHITE);search.setHintTextColor(MUTED);search.setHint(tab.equals("events")?"Hareketlerde kullanıcı adı veya isim ara":"Listede isim ara");search.setSingleLine(true);search.setText(query);content.addView(search);
+        action("Ara",()->{query=search.getText().toString().trim().replaceFirst("^@","");page=0;render();});
+        if(tab.equals("events")) {
+            String[] options={"Tüm hareketler","Yeni takipçiler","Yeni takipler","Listeden çıkanlar"};
+            action("Filtre: "+options[eventFilter],()->new AlertDialog.Builder(this).setTitle("Hareketleri filtrele").setSingleChoiceItems(options,eventFilter,(d,which)->{eventFilter=which;query=search.getText().toString().trim().replaceFirst("^@","");page=0;d.dismiss();render();}).setNegativeButton("Kapat",null).show());
+            label("“Listeden çıktı” kaydı, takipten çıkma, engelleme veya hesabın kapanması gibi farklı nedenlerle oluşabilir. İki kontrol arasındaki kısa süreli değişiklikler kaçırılabilir.",12,MUTED);
+        }
+        int count=0;boolean hasMore=false;
+        String kind=eventFilter==1?"followers":eventFilter==2?"following":"",eventAction=eventFilter==3?"removed":eventFilter==0?"":"added";
+        try(Cursor c=tab.equals("events")?store.events(a.id,a.owner,query,kind,eventAction,page*100):store.edges(a.id,a.owner,tab,query,page*100)){
             while(c.moveToNext()) {
+                if(count==100){hasMore=true;break;}
                 count++;LinearLayout item=card();
                 if(tab.equals("events")){
                     boolean followers=c.getString(0).equals("followers"),added=c.getString(1).equals("added");
@@ -132,7 +148,7 @@ public class MainActivity extends Activity {
         }
         if(count==0) label(tab.equals("events")?"Bu sayfada değişiklik kaydı yok.":"Bu sayfada kişi bulunamadı.",15,MUTED);
         label("Sayfa "+(page+1)+" • sayfa başına 100 kayıt. Kişiye dokunarak Instagram profilini açabilirsin.",12,MUTED);
-        LinearLayout pages=new LinearLayout(this);if(page>0)pages.addView(button("‹ Önceki",()->{page--;render();}));if(count==100)pages.addView(button("Sonraki ›",()->{page++;render();}));content.addView(pages);
+        LinearLayout pages=new LinearLayout(this);if(page>0)pages.addView(button("‹ Önceki",()->{page--;render();}));if(hasMore)pages.addView(button("Sonraki ›",()->{page++;render();}));content.addView(pages);
     }
     private void check(long id){
         check(id,false);
@@ -141,23 +157,23 @@ public class MainActivity extends Activity {
         if(Monitor.BUSY.get()){toast("Kontrol zaten sürüyor.");return;}
         Context app=getApplicationContext();toast("Kontrol başlatılıyor…");
         new Thread(()->{String result=profileOnly?Monitor.profile(app,id):Monitor.run(app,id,true);runOnUiThread(()->{if(isFinishing()||isDestroyed())return;render();new AlertDialog.Builder(this).setTitle("Kontrol sonucu").setMessage(result)
-            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.2.3\n"+result));toast("Kontrol bilgisi kopyalandı");})
+            .setNeutralButton("Bilgiyi kopyala",(d,w)->{android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow kontrol","Black Follow 0.2.4\n"+result));toast("Kontrol bilgisi kopyalandı");})
             .setPositiveButton("Tamam",null).show();});},"manual-check").start();
     }
     private void login(){if(Monitor.BUSY.get()){toast("Mevcut kontrolün bitmesini bekle.");return;}startActivity(new Intent(this,LoginActivity.class));}
     private void drawer(){
         Dialog dialog=new Dialog(this);LinearLayout panel=column();panel.setPadding(dp(22),dp(32),dp(22),dp(24));panel.setBackgroundColor(CARD);
-        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.2.3 • Erişim testi",13,MUTED));
+        panel.addView(text("BLACK FOLLOW",22,GREEN));panel.addView(text("0.2.4",13,MUTED));
         panel.addView(button("Hesap geçmişi",()->{dialog.dismiss();selected=0;history=true;render();}));
         panel.addView(button("Instagram oturumu",()->{dialog.dismiss();login();}));
         panel.addView(button("Kontrol ayarları",()->{dialog.dismiss();settings();}));
         panel.addView(button(ChangeNotifications.enabled(this)?"Bildirim ayarları":"Bildirimleri aç",()->{dialog.dismiss();ChangeNotifications.request(this);}));
-        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.2.3\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
+        panel.addView(button("Son hata bilgisini kopyala",()->{dialog.dismiss();String detail=Session.prefs(this).getString("last_error_detail","Bu sürümde henüz istek hatası kaydedilmedi.");android.content.ClipboardManager cm=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);cm.setPrimaryClip(ClipData.newPlainText("Black Follow tanı","Black Follow 0.2.4\n"+Session.globalStatus(this)+"\n"+detail));toast("Hata bilgisi kopyalandı");}));
         if(selected>0)panel.addView(button("Bu hesabı dışa aktar (.txt)",()->{dialog.dismiss();exportReport();}));
         if(selected>0) panel.addView(button("Bu hesabın kayıtlarını sil",()->{dialog.dismiss();remove();}));
         panel.addView(button("Instagram'dan çıkış",()->{dialog.dismiss();logout();}));
         panel.addView(text("İlk listeler: zaman bilinmiyor.\nSonraki değişiklikler: tespit zamanı.\n\nInstagram'a erişim sağlanamadığında eski kayıtlar korunur.",14,MUTED));
-        dialog.setContentView(panel);Window w=dialog.getWindow();if(w!=null){w.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.86),-1);w.setGravity(Gravity.START);w.setBackgroundDrawableResource(android.R.color.transparent);}dialog.show();if(w!=null)w.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.86),-1);
+        ScrollView menuScroll=new ScrollView(this);menuScroll.addView(panel);dialog.setContentView(menuScroll);Window w=dialog.getWindow();if(w!=null){w.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.86),-1);w.setGravity(Gravity.START);w.setBackgroundDrawableResource(android.R.color.transparent);}dialog.show();if(w!=null)w.setLayout((int)(getResources().getDisplayMetrics().widthPixels*.86),-1);
     }
     private void settings(){
         String[] options={"6 saatte bir","12 saatte bir","24 saatte bir","Otomatik kontrolü kapat"};

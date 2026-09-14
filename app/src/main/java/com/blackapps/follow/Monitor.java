@@ -6,6 +6,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class Monitor {
     public static final AtomicBoolean BUSY=new AtomicBoolean(false);
     public static volatile String progress="";
+    public static final java.util.concurrent.atomic.AtomicLong REVISION=new java.util.concurrent.atomic.AtomicLong();
     public static String run(Context c,long onlyId,boolean force) {
         return run(c,onlyId,force,false);
     }
@@ -55,7 +56,7 @@ public final class Monitor {
             }
             return profileOnly?(ok>0?"Profil sayıları alındı. Kişileri görmek için Listeyi şimdi yenile düğmesini kullan.":lastError):profiles+" profil sayısı alındı • "+ok+" hesabın kişi listeleri güncellendi"+(failed>0?", "+failed+" kontrol tamamlanamadı":"")+(lastError.isEmpty()?".":". "+lastError)+changes;
         } catch(Exception e) {return message(e);}
-        finally {progress="";BUSY.set(false);}
+        finally {progress="";REVISION.incrementAndGet();BUSY.set(false);}
     }
     private static void handle(Context c,InstagramClient.AccessError e) {
         if(e.auth) Session.pause(c,e.getMessage());

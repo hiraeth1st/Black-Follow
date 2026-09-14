@@ -74,4 +74,29 @@ assert db.execute(notification_sql,('1','123',str(latest_id))).fetchall()==[]
 new_rows=db.execute(notification_sql,('1','123','1')).fetchall()
 assert all(r[1]=='added' and r[2]!='private_other_owner' for r in new_rows)
 assert len(new_rows)==207
-print('PASS: 21 SQLite migration, recurrence, export and notification isolation checks')
+# Production filtered-history SQL keeps recurrence across the whole history.
+events_body=source.split('public Cursor events(',1)[1].split('public long lastEventId',1)[0]
+events_sql=java_sql(re.search(r'rawQuery\((.*?),new String',events_body).group(1))
+def filtered(owner='123',kind='',action='',q='%',offset=0):
+    return db.execute(events_sql,('1',owner,kind,kind,action,action,q,q,str(offset))).fetchall()
+assert len(filtered(kind='followers',action='added'))==101
+assert len(filtered(kind='followers',action='added',offset=100))==101
+assert len(filtered(kind='followers',action='added',offset=200))==5
+assert filtered(owner='other-owner')==[]
+assert all(r[0]=='following' and r[1]=='removed' for r in filtered(kind='following',action='removed'))
+assert len(filtered(q='%other_latest%'))==1 and filtered(q='%other_latest%')[0][6]==3
+assert len(filtered(action='removed'))==2
+# Literal wildcard searches must use bound, escaped patterns.
+db.execute("INSERT INTO events(account,kind,action,person,username,name,lower_bound,detected) VALUES(1,'followers','added','888','literal_name','100% Real',0,5000)")
+assert len(filtered(q='%literal\\_name%'))==1
+assert len(filtered(q='%100\\%%'))==1
+# Exported current lists use the same owner guard and no 100-row page limit.
+current_body=source.split('report.currentLists(',1)[1]
+current_sql=java_sql(re.search(r'rawQuery\(("(?:[^"\\]|\\.)*")',current_body).group(1))
+for i in range(205):
+    db.execute("INSERT INTO edges(account,kind,person,username,name,since,lower_bound,avatar) VALUES(1,'following',?,?,'',0,0,'')",(str(20000+i),'current'+str(i)))
+assert len(db.execute(current_sql,('1','123','following')).fetchall())==205
+assert db.execute(current_sql,('1','other-owner','following')).fetchall()==[]
+assert db.execute(current_sql,('1','123','followers')).fetchone()[0]=='person'
+assert db.execute('PRAGMA foreign_key_check').fetchall()==[]
+print('PASS: 34 SQLite migration, recurrence, export, filters and isolation checks')

@@ -33,6 +33,18 @@ public final class HistoryText {
             heading(time);out.write(format(time,"HH:mm:ss",zone)+" • "+HistoryText.event(kind,action,username,count,removed,zone)+"\n");
             if(lower>0)out.write("  Tespit aralığı: "+format(lower,"dd.MM.yyyy HH:mm:ss",zone)+" – "+format(time,"dd.MM.yyyy HH:mm:ss",zone)+"\n");events++;
         }
+        public void currentLists(long time)throws IOException {
+            out.write("\nMEVCUT KİŞİ LİSTELERİ\n");
+            out.write(time==0?"Henüz tam liste alınmadı; bu durum sıfır kişi anlamına gelmez.\n":"Son tam tarama: "+format(time,"dd.MM.yyyy HH:mm:ss",zone)+"\nAşağıdaki kişiler bu taramada mevcut olanlardır.\n");
+        }
+        public void listHeading(String kind)throws IOException {out.write("\n"+("followers".equals(kind)?"TAKİPÇİLER":"TAKİP EDİLENLER")+"\n");}
+        public void person(String username,String name,long since,long lower)throws IOException {
+            out.write("@"+username+(name==null||name.isEmpty()?"":" • "+name.replace('\n',' ').replace('\r',' '))+"\n");
+            out.write(since==0?"  Zaman bilinmiyor · ilk kayıtta mevcut\n":"  Tespit: "+format(since,"dd.MM.yyyy HH:mm:ss",zone)+"\n");
+            if(since>0&&lower>0)out.write("  Tespit aralığı: "+format(lower,"dd.MM.yyyy HH:mm:ss",zone)+" – "+format(since,"dd.MM.yyyy HH:mm:ss",zone)+"\n");
+            out.write("  "+ProfileLinks.profile(username)+"\n");
+        }
+        public void listCount(int count)throws IOException {out.write("Toplam: "+count+" kişi\n");}
         public void finish()throws IOException {if(observations==0)out.write("\nTarihçeli profil sayımı henüz yok.\n");if(events==0)out.write("\nHenüz tespit edilmiş takip değişikliği yok.\n");out.write("\nRapor sonu • "+events+" hareket\n");out.flush();}
     }
 }
