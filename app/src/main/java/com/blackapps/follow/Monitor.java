@@ -48,7 +48,7 @@ public final class Monitor {
                     InstagramClient.Snapshot snapshot=client.snapshot(a,p,scanStart);
                     if(!Session.matches(owner) || !Session.owner(c).equals(owner)) throw new InstagramClient.AccessError("Oturum değişti; kontrol durduruldu.",true,false);
                     long before=store.lastEventId(a.id,owner);
-                    if(store.commit(a,snapshot,Session.interval(c),force&&onlyId>0)) {Session.dataSucceeded(c);MonitorJob.cancelStrict(c);ok++;ChangeNotifications.post(c,store,a,before);if(onlyId>0)changes=a.lastSuccess==0?"\nİlk tam liste kaydedildi. Sonraki yenilemelerde değişiklikler gösterilecek.":store.changes(a.id,owner,before);}
+                    if(store.commit(a,snapshot,Session.interval(c),force&&onlyId>0)) {Session.dataSucceeded(c);ok++;ChangeNotifications.post(c,store,a,before);if(onlyId>0)changes=a.lastSuccess==0?"\nİlk tam liste kaydedildi. Sonraki yenilemelerde değişiklikler gösterilecek.":store.changes(a.id,owner,before);}
                 } catch(Exception e) {
                     if(e instanceof InstagramClient.AccessError) handle(c,(InstagramClient.AccessError)e);
                     boolean strictIncomplete=e instanceof InstagramClient.PartialLists;
@@ -62,6 +62,7 @@ public final class Monitor {
                     if(e instanceof InterruptedException) {Thread.currentThread().interrupt();break;}
                 }
             }
+            if(previews==0)MonitorJob.cancelStrict(c);
             if(onlyId>0 && previews>0)return lastError;
             return profileOnly?(ok>0?"Profil sayıları alındı. Kişileri görmek için Listeyi şimdi yenile düğmesini kullan.":lastError):profiles+" profil sayısı alındı • "+ok+" hesabın kişi listeleri güncellendi"+(previews>0?", "+previews+" hesabın tamamlama işlemi otomatik sürdürülecek":"")+(failed>0?", "+failed+" kontrol tamamlanamadı":"")+(lastError.isEmpty()?".":". "+lastError)+changes;
         } catch(Exception e) {return message(e);}
