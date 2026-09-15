@@ -92,10 +92,16 @@ public final class MobileInstagramClient {
             code=cn.getResponseCode();String claim=cn.getHeaderField("ig-set-www-claim");if(claim!=null&&!claim.isEmpty()&&claim.length()<1024)Session.prefs(context).edit().putString("mobile_claim",claim).apply();
             long retry=RetryPolicy.serverDelay(cn.getHeaderField("Retry-After"),System.currentTimeMillis());
             InputStream stream=code>=200&&code<300?cn.getInputStream():cn.getErrorStream();String text=read(stream,8*1024*1024);
-            JSONObject json=parse(text);
+            JSONObject json;
+            try {json=parse(text);}
+            catch(IOException malformed) {
+                if(code==400||code==401||code==403||code==404)throw new Unsupported("Mobil yöntem kabul edilmedi (HTTP "+code+", JSON olmayan yanıt).");
+                throw malformed;
+            }
             String message=json.optString("message","");String gate=ResponsePolicy.gate(code,message,!json.isNull("challenge"),!json.isNull("checkpoint_url"),!json.isNull("feedback_title"));
             if("BF_RATE".equals(gate))throw new InstagramClient.AccessError("Instagram mobil liste isteğini sınırladı. [BF_MOBILE_RATE]",false,true,retry);
             if("BF_CHALLENGE".equals(gate)||"BF_ACTION_BLOCK".equals(gate))throw new InstagramClient.AccessError("Instagram mobil liste doğrulaması istiyor. Instagram uygulamasındaki uyarıyı tamamla. [BF_MOBILE_CHALLENGE]",true,false);
+            if("BF_SIGN_IN".equals(gate)||"BF_FORBIDDEN".equals(gate)||"BF_REDIRECT".equals(gate))throw new InstagramClient.AccessError("Instagram mobil oturumu yeniden doğrulanmalı. [BF_MOBILE_SIGN_IN]",true,false);
             if(code==401||code==403||code==400||code==404)throw new Unsupported("Mobil yöntem kabul edilmedi (HTTP "+code+").");
             if(code<200||code>=300)throw new IOException("Mobil Instagram isteği HTTP "+code+" ile tamamlanamadı.");
             JSONArray errors=json.optJSONArray("errors");if(errors!=null&&errors.length()>0)throw new Unsupported("Mobil GraphQL sorgusu bu oturumda desteklenmedi.");
