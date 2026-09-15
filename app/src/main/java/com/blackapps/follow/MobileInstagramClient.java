@@ -28,12 +28,12 @@ public final class MobileInstagramClient {
         this.context=context.getApplicationContext();this.owner=owner;this.deadline=deadline;this.progress=progress;
         SharedPreferences prefs=Session.prefs(this.context);
         uuid=stableUuid(prefs,"mobile_uuid");phoneId=stableUuid(prefs,"mobile_phone_id");
-        androidId=prefs.getString("mobile_android_id","");
-        if(androidId.isEmpty()) {
-            String generated="android-"+hex(sha256(owner+":"+uuid)).substring(0,16);
-            prefs.edit().putString("mobile_android_id",generated).apply();
-            androidId=generated;
+        String savedAndroidId=prefs.getString("mobile_android_id","");
+        if(savedAndroidId.isEmpty()) {
+            savedAndroidId="android-"+hex(sha256(owner+":"+uuid)).substring(0,16);
+            prefs.edit().putString("mobile_android_id",savedAndroidId).apply();
         }
+        androidId=savedAndroidId;
     }
     private static String stableUuid(SharedPreferences prefs,String key) {
         String value=prefs.getString(key,"");if(!value.isEmpty())return value;
@@ -43,7 +43,7 @@ public final class MobileInstagramClient {
         try{return MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));}
         catch(Exception impossible){throw new IllegalStateException(impossible);}
     }
-    private static String hex(byte[] data){StringBuilder out=new StringBuilder();for(byte b:data)out.append(String.format(Locale.ROOT,"%02x",b));return out.toString();}
+    private static String hex(byte[] data){StringBuilder out=new StringBuilder();for(byte b:data)out.append(String.format(Locale.ROOT,"%02x",b&0xff));return out.toString();}
 
     private void guard() throws Exception {
         if(Thread.currentThread().isInterrupted()||System.currentTimeMillis()>deadline)throw new IOException("Tam liste kontrolü zaman sınırında durdu; toplanan adaylar korunuyor.");

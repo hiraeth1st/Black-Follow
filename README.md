@@ -1,8 +1,17 @@
-# Black Follow — Android 0.4.5
+# Black Follow — Android 0.4.6
 
 Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip yerel geçmiş tutan bağımsız Android uygulaması. Instagram veya Meta'nın resmî uygulaması değildir.
 
-## 0.4.5: takip/takipçi isteklerinin baştan sona düzeltilmesi
+## 0.4.6: tam liste zorunluluğu ve mobil özel veri yolları
+
+- Eksik tarama artık nihai sonuç veya tamamlanmış kontrol sayılmaz. Geçmiş, bildirim ve takipten çıkma olayları yalnızca iki liste profil toplamlarıyla birebir eşleştiğinde üretilir.
+- Web REST akışına ek olarak, WebView oturumundaki `sessionid` cihazdan çıkarılmadan özel mobil yetkilendirme başlığına dönüştürülür ve `i.instagram.com` mobil REST listeleri denenir.
+- Mobil REST de kısa kalırsa güncel `FollowersList` / `FollowingList` özel GraphQL sorguları, güncel document ID ve değişken biçimleriyle denenir. Eski `query_hash` GraphQL yöntemi geri getirilmemiştir.
+- Parola istenmez veya saklanmaz. Mobil yöntem aynı yerel Instagram oturumunu ve cihazda saklanan kararlı cihaz kimliklerini kullanır.
+- Eksik kimlikler farklı yöntem ve sonraki kontroller arasında birleşik aday havuzunda tutulur. Tam liste oluşmazsa 30 dakika sonra otomatik kesinleştirme işi planlanır ve tamamlanana kadar doğrulanmış geçmiş değiştirilmez.
+- Elle tam kontrol 45 dakikalık güvenli üst sınıra sahiptir; sunucunun rate-limit veya doğrulama yanıtı her yöntemi durdurur.
+
+## 0.4.6: takip/takipçi isteklerinin baştan sona düzeltilmesi
 
 - `count=1000` kaldırıldı. Normal liste sayfaları güncel istemcilerdeki gibi 200 kişi ister; ilişki içi arama ise `count`, `rank_token` ve `max_id` göndermeyen ayrı kanonik istek biçimini kullanır.
 - Arama tek yanıttır; geçersiz cursor sayfalaması kaldırıldı. HTTP 400/404 gibi arama-yüzeyi uyumsuzlukları artık bütün kontrolü bozmaz, yalnızca isteğe bağlı kurtarma aşamasını kapatır.
@@ -12,7 +21,7 @@ Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip
 - Liste doğrulama tavanı 10.000'den 100.000'e, cursor sayfa güvenlik sınırı 1.000'e yükseltildi. Elle tam tarama için 30 dakikalık üst sınır vardır; otomatik tarama 7 dakikada güvenli biçimde durur.
 - İki listenin benzersiz kimlik sayısı profil toplamıyla tam eşleşmeden geçmiş, takipten çıkma olayı veya bildirim üretilmez.
 
-## 0.4.5: 1000 sonuçlu arama ve Türkçe harfler
+## 0.4.6: 1000 sonuçlu arama ve Türkçe harfler
 
 - Takipçi/takip edilenler listesinde sorgu doluysa `count=1000` istenir; normal sayfalama `count=200` olarak kalır.
 - Hesap kullanıcı adı çözümleme aramasına da `count=1000` parametresi eklenmiştir.
@@ -20,7 +29,7 @@ Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip
 - Türkçe harfler kullanıcı adında bulunamayacağı için bu altı sorgu, ilişki listesinin döndürdüğü kişilerin görünen adında Türkçe yerel eşleşme arar.
 - Türkçe sorgular tek seferliktir; imkânsız kullanıcı adı alt dalları oluşturmaz. Sonuçlar yine sayısal Instagram kimliğiyle tekilleştirilir.
 
-## 0.4.5: çoklu REST kurtarma ve eksik-dal tespiti
+## 0.4.6: çoklu REST kurtarma ve eksik-dal tespiti
 
 - Takip edilenler isteklerine Instagram'ın kanonik `includes_hashtags=false` parametresi eklendi.
 - Normal taramadan sonra iki bağımsız rank-token REST geçişi birleştirilir; takipçilerde ayrıca en yeni/en eski sıralı geçişler denenir.
@@ -28,7 +37,7 @@ Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip
 - Aynı önek altında zaten bilinen kullanıcı sayısından daha az sonuç dönerse o dal eksik kabul edilip alt öneklere ayrılır.
 - Kök önekler iki bağımsız rank bağlamıyla taranır; toplam doğrulanmadan geçmiş yine değişmez.
 
-## 0.4.5: hedefli kurtarma ve yoğunluk önceliği
+## 0.4.6: hedefli kurtarma ve yoğunluk önceliği
 
 - Normal liste eksik kaldığında, son doğrulanmış listede bulunup yeni yanıtta görünmeyen kullanıcılar önce tam kullanıcı adlarıyla hedefli aranır.
 - Geniş önek taramasında kalabalık alt önekler önce işlenir; olası olmayan boş kombinasyonlar kuyruğun başını tüketmez.
@@ -36,7 +45,7 @@ Instagram takipçi ve takip listelerine oturumun izin verdiği ölçüde erişip
 - Elle başlatılan tam kontrolün güvenli süre sınırı 12 dakikadır; otomatik kontroller 7 dakikalık sınırı korur.
 - Tam sayı yine doğrulanamazsa önizleme saklanır ve geçmiş değişmez.
 
-## 0.4.5: eksik listeleri önek aramasıyla tamamlama
+## 0.4.6: eksik listeleri önek aramasıyla tamamlama
 
 Bu sürümde eski GraphQL “ikinci yöntem” ve görünür WebView kaydırma ekranı kaldırıldı. Liste yenileme artık tek bir doğrulanabilir akış kullanır:
 
@@ -51,7 +60,7 @@ Bu sürümde eski GraphQL “ikinci yöntem” ve görünür WebView kaydırma e
 
 Önek araması sınırlı bir istek ve derinlik bütçesine sahiptir. Instagram tüm kişileri hiçbir yöntemde göndermiyorsa alınan bölüm yalnızca **önizleme** olarak saklanır; doğrulanmış geçmiş korunur.
 
-Sürüm: **0.4.5-test**, `versionCode=20`, veritabanı şeması **4**. Aynı imza kullanıldığında önceki sürüm silinmeden güncellenebilir.
+Sürüm: **0.4.6-test**, `versionCode=21`, veritabanı şeması **4**. Aynı imza kullanıldığında önceki sürüm silinmeden güncellenebilir.
 
 ## Temel özellikler
 
@@ -74,7 +83,7 @@ Sürüm: **0.4.5-test**, `versionCode=20`, veritabanı şeması **4**. Aynı imz
 
 ## Telefonda kullanım
 
-1. GitHub Actions çıktısından `Black-Follow-0.4.5-test.apk` dosyasını indirip Android 8.0 veya üzeri cihaza kur.
+1. GitHub Actions çıktısından `Black-Follow-0.4.6-test.apk` dosyasını indirip Android 8.0 veya üzeri cihaza kur.
 2. **Instagram'a giriş yap** ekranında Instagram hesabınla giriş yap ve gerekiyorsa doğrulamayı tamamla.
 3. **Giriş yaptım • oturumu doğrula** düğmesine bas.
 4. Bir kullanıcı adı ekle veya **Profilim** sekmesini aç.
@@ -119,7 +128,7 @@ bash build-apk.sh
 İmzalı çıktı:
 
 ```text
-out/Black-Follow-0.4.5-test.apk
+out/Black-Follow-0.4.6-test.apk
 ```
 
 İmza değişirse Android mevcut kurulumun üzerine güncelleme yapmaz. Anahtar dosyası ve parolası repoya eklenmemelidir.

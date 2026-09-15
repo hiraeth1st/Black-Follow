@@ -61,7 +61,7 @@ public class LoginActivity extends Activity {
             boolean changed=!owner.equals(Session.owner(this));if(changed) ChangeNotifications.clear(this);
             android.content.SharedPreferences.Editor edit=Session.prefs(this).edit().putString("owner",owner).putString("viewer_name",name).putBoolean("paused",false)
                 .putLong("verified_at",System.currentTimeMillis()).remove("pause_reason");
-            if(changed)edit.remove("www_claim");edit.apply();
+            if(changed)edit.remove("www_claim").remove("mobile_claim");edit.apply();
             CookieManager.getInstance().flush();MonitorJob.schedule(this);
             Toast.makeText(this,"@"+name+" bağlandı",Toast.LENGTH_LONG).show();finish();
         });

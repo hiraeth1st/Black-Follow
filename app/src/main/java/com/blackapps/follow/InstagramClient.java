@@ -48,6 +48,10 @@ public final class InstagramClient {
         listTrace.put("RestRecovery"+kind+label+pass,"REST kurtarma "+("followers".equals(kind)?"takipçi":"takip")+": yöntem="+label+", tur="+pass+", sayfa="+pages+", satır="+rows+", yeni="+added+", kişi="+unique+"/"+expected+", terminal="+terminal+", sınırlı="+limited+", destek="+(!unsupported));
         saveListTrace();
     }
+    private void traceMobile(String kind,MobileInstagramClient.Result result,int expected) {
+        listTrace.put("Mobile"+kind,"Mobil özel API/GraphQL "+("followers".equals(kind)?"takipçi":"takip")+": kişi="+result.people.size()+"/"+expected+(result.detail.isEmpty()?"":"\n"+result.detail));
+        saveListTrace();
+    }
     private void saveListTrace(){Session.prefs(context).edit().putString("last_list_detail",String.join("\n",listTrace.values())).apply();}
     private final Progress progress;
     private final Context context;private final String owner;private final long deadline;private final int requestDelayMs;private long lastRequest=0;private int followersSearchMode,followingSearchMode;
@@ -382,10 +386,19 @@ public final class InstagramClient {
         } catch(Exception ignored) { /* Baseline recovery is an optimization; the live scan remains authoritative. */ }
         s.followers=people(s.profile.id,"followers",s.profile.followers,followerRank);
         s.following=people(s.profile.id,"following",s.profile.following,followingRank);
+        MobileInstagramClient mobileClient=new MobileInstagramClient(context,owner,deadline,progress);
+        if(s.followers.size()!=s.profile.followers) {
+            MobileInstagramClient.Result mobile=mobileClient.complete(s.profile.id,"followers",s.profile.followers,s.followers);
+            s.followers=mobile.people;traceMobile("followers",mobile,s.profile.followers);observer.received("followers",s.followers,s.profile.followers);
+        }
+        if(s.following.size()!=s.profile.following) {
+            MobileInstagramClient.Result mobile=mobileClient.complete(s.profile.id,"following",s.profile.following,s.following);
+            s.following=mobile.people;traceMobile("following",mobile,s.profile.following);observer.received("following",s.following,s.profile.following);
+        }
         s.followers=completeBySearch(s.profile.id,"followers",s.profile.followers,followerRank,oldFollowers,s.followers);
         s.following=completeBySearch(s.profile.id,"following",s.profile.following,followingRank,oldFollowing,s.following);
         if(s.followers.size()!=s.profile.followers || s.following.size()!=s.profile.following)
-            throw new PartialLists("Normal liste, REST kurtarma ve liste aramalarıyla tam sonuç doğrulanamadı: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Alınabilen kişiler önizleme olarak saklandı. Eksik kişiler takipten çıktı sayılmadı; doğrulanmış geçmiş değişmedi. [BF_LIST_PARTIAL]\n"+String.join("\n",listTrace.values()));
+            throw new PartialLists("Tam liste zorunlu olduğu için kontrol bitirilmedi: "+s.followers.size()+"/"+s.profile.followers+" takipçi, "+s.following.size()+"/"+s.profile.following+" takip. Web REST, mobil özel REST, güncel özel GraphQL ve liste aramaları tamamlandı; bulunan kimlikler kalıcı aday havuzunda saklandı ve otomatik kesinleştirme devam edecek. Geçmiş veya takipten çıkma olayı üretilmedi. [BF_STRICT_INCOMPLETE]\n"+String.join("\n",listTrace.values()));
         Profile after=profile(s.profile.username,s.profile.id);
         if(!after.id.equals(s.profile.id) || after.followers!=s.profile.followers || after.following!=s.profile.following || after.restricted)
             throw new IOException("Hesap kontrol sırasında değişti; yeni liste kaydedilmedi.");

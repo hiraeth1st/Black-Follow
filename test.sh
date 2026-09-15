@@ -24,6 +24,8 @@ if [[ -n "${BF_JSON_JAR:-}" ]]; then
   java com.sun.tools.javac.Main -encoding UTF-8 -cp "$BF_JSON_JAR" -d out/tests app/src/main/java/com/blackapps/follow/ProfileLookup.java app/src/main/java/com/blackapps/follow/ViewerVerifier.java app/src/main/java/com/blackapps/follow/ResponsePolicy.java tests/ViewerVerifierTest.java tests/ProfileLookupTest.java
   java -cp "$BF_JSON_JAR:out/tests" ViewerVerifierTest
   java -cp "$BF_JSON_JAR:out/tests" ProfileLookupTest
+  java com.sun.tools.javac.Main -encoding UTF-8 -cp "$BF_JSON_JAR" -d out/tests app/src/main/java/com/blackapps/follow/RelationshipRequest.java app/src/main/java/com/blackapps/follow/MobileRequestLogic.java tests/MobileRequestLogicTest.java
+  java -cp "$BF_JSON_JAR:out/tests" MobileRequestLogicTest
   java com.sun.tools.javac.Main -encoding UTF-8 -cp "$BF_JSON_JAR" -d out/tests app/src/main/java/com/blackapps/follow/WebSession.java tests/WebSessionTest.java
   java -cp "$BF_JSON_JAR:out/tests" WebSessionTest
   mkdir -p out/monitor-tests
