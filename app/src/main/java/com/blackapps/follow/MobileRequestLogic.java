@@ -26,7 +26,7 @@ public final class MobileRequestLogic {
     }
     private static String enc(String value)throws Exception{return URLEncoder.encode(value==null?"":value,StandardCharsets.UTF_8.name());}
 
-    public static String authorization(String owner,String sessionid) {
+    public static String authorization(String owner,String sessionid)throws Exception {
         if(owner==null||!owner.matches("[0-9]+"))throw new IllegalArgumentException("Geçersiz oturum kimliği.");
         if(sessionid==null||sessionid.length()<20)throw new IllegalArgumentException("Instagram oturum bilgisi eksik.");
         JSONObject data=new JSONObject();
@@ -47,7 +47,7 @@ public final class MobileRequestLogic {
     public static String rootName(String kind){validate("1",kind);return "followers".equals(kind)?FOLLOWERS_ROOT:FOLLOWING_ROOT;}
     public static String docId(String kind){validate("1",kind);return "followers".equals(kind)?FOLLOWERS_DOC_ID:FOLLOWING_DOC_ID;}
 
-    public static JSONObject variables(String id,String kind,String rankToken,String cursor,String order) {
+    public static JSONObject variables(String id,String kind,String rankToken,String cursor,String order)throws Exception {
         validate(id,kind);
         JSONObject requestData=new JSONObject();
         JSONObject variables=new JSONObject();
